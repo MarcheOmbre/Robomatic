@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Project.Scripts.Entities;
 using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.GameModes.Abstracts;
 using Project.Scripts.Spawner;
@@ -14,11 +15,13 @@ namespace Project.Scripts.GameModes
     {
         private HashSet<AEntity> spawnedEntities = new();
         
-        [SerializeField] private AEntity playerPrefab;
+        [SerializeField] private Player playerPrefab;
+        [SerializeField] private Balloon balloonPrefab;
         
         public override void Initialize()
         {
             spawnedEntities.Add(SpawnerManager.Instance.Spawn(playerPrefab));
+            spawnedEntities.Add(SpawnerManager.Instance.Spawn(balloonPrefab));
         }
 
         public override async Task Update()

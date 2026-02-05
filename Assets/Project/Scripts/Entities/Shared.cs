@@ -1,11 +1,17 @@
 using System;
+using Project.Scripts.Interpreters;
 
 namespace Project.Scripts.Entities
 {
     [Flags]
+    [Serializable]
+    [AuthorizedType]
     public enum EntityType
     {
-        Player = 5,
-        Balloon = 15
+        None = 0,
+        
+        Player = 1 << 5,
+        
+        Balloon = 1 << 15
     }
 }

@@ -1,9 +1,11 @@
 using System;
+using Project.Scripts.Interpreters;
 using Project.Scripts.Utils;
 using UnityEngine;
 
 namespace Project.Scripts.Entities.Abstracts
 {
+    [AuthorizedType]
     public abstract class AEntity : MonoBehaviour
     {
         public abstract EntityType EntityType { get; }
@@ -11,7 +13,7 @@ namespace Project.Scripts.Entities.Abstracts
         
         private void OnValidate()
         {
-            if (EntityType.CountFlags() != 1)
+            if (EntityType.HasMultipleFlags())
                 throw new ArgumentException("Entity only support One Flag set.");
         }
 

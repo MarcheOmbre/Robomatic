@@ -9,6 +9,7 @@ namespace Project.Scripts.Spawner
     {
         private readonly HashSet<Spawn> spawns = new();
         
+        
         public void Subscribe(Spawn spawn) => spawns.Add(spawn);
 
         public void Unsubscribe(Spawn spawn) => spawns.Remove(spawn);
@@ -16,6 +17,9 @@ namespace Project.Scripts.Spawner
         
         public AEntity Spawn(AEntity prefab)
         {
+            if(prefab is null)
+                throw new ArgumentNullException(nameof(prefab), "Prefab cannot be null.");
+            
             if(spawns.Count <= 0)
                 throw new InvalidOperationException("No spawn available.");
             
