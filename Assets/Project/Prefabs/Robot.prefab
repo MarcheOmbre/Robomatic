@@ -3481,7 +3481,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 931e34e310c02ad28b43ecd7010bfc97, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Entities.Robot
-  speed: 5
+  translationSpeed: 5
+  rotationSpeed: 150
   controller: {fileID: 3250000373213057290}
 --- !u!1 &7431197748701410340
 GameObject:

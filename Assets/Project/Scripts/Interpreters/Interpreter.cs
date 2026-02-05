@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Project.Scripts.Interpreters.Abstracts;
@@ -28,25 +29,34 @@ namespace Project.Scripts.Interpreters
         private void OnDisable() => Stop();
 
 
-        private static Dictionary<Type, IEnumerable<Delegate>> GeneratedDelegates()
+        private static Dictionary<Type, IEnumerable<MethodInfo>> ExtractMethodInfos()
         {
-            var dictionary = new Dictionary<Type, IEnumerable<Delegate>>();
+            var assembly = typeof(Context).Assembly;
             
-            foreach (var type in typeof(Context).Assembly.GetTypes())
+            // Get authorized types
+            var dictionary = assembly.GetTypes().Where(type => type.CustomAttributes
+                .Any(attribute => attribute.AttributeType == typeof(AuthorizedType)))
+                .ToDictionary<Type, Type, IEnumerable<MethodInfo>>(type => type, _ => Array.Empty<MethodInfo>());
+
+            // Get authorized methods
+            foreach (var type in assembly.GetTypes())
             {
                 var delegates = type.GetMethods().Where(method => method.CustomAttributes
-                    .Any(attribute => attribute.AttributeType == typeof(Authorized)))
-                    .Select(method => ReflectionExtensions.CreateDelegate(method, null))
+                    .Any(attribute => attribute.AttributeType == typeof(AuthorizedMethod)))
                     .ToArray();
                 
                 if(!delegates.Any())
                     continue;
                 
-                dictionary.Add(type, delegates);
+                if(!dictionary.ContainsKey(type))
+                    dictionary.Add(type, Array.Empty<MethodInfo>());
+                
+                dictionary[type] = dictionary[type].Concat(delegates);
             }
             
             return dictionary.ToDictionary(x => x.Key, x => x.Value.AsEnumerable());
         }
+        
         
         private async Task GameLoopProcess(AInterpreterSettings interpreter, CancellationToken token)
         {
@@ -66,23 +76,27 @@ namespace Project.Scripts.Interpreters
             if (cancellationTokenSource is not null)
                 throw new InvalidOperationException("Script is already running.");
 
-            // Load script
-            var delegatesPerTypes = GeneratedDelegates();
-            var globalsDelegates = new List<Delegate>();
+            // Load delegates
+            var methodInfosPerType = ExtractMethodInfos();
+            var globalMethodInfos = new List<MethodInfo>();
             
+            // Separate context delegates from other delegates
             var contextType = typeof(Context);
-            if (delegatesPerTypes.ContainsKey(contextType))
+            if (methodInfosPerType.ContainsKey(contextType))
             {
-                globalsDelegates.AddRange(delegatesPerTypes[contextType]);
-                delegatesPerTypes.Remove(contextType);
+                globalMethodInfos.AddRange(methodInfosPerType[contextType]);
+                methodInfosPerType.Remove(contextType);
             }
                 
-            interpreterSettings.Service.LoadScript(globalsDelegates, delegatesPerTypes, code);
+            interpreterSettings.Service.LoadScript(globalMethodInfos, methodInfosPerType, code);
 
             // Start the game loop
             cancellationTokenSource = new CancellationTokenSource();
             
-            try { await GameLoopProcess(interpreterSettings, cancellationTokenSource.Token); }
+            try
+            {
+                await GameLoopProcess(interpreterSettings, cancellationTokenSource.Token);
+            }
             catch (Exception e)
             {
                 if(e is not OperationCanceledException)

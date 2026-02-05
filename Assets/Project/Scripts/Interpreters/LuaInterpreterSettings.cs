@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 using Project.Scripts.Interpreters.Abstracts;
@@ -24,6 +25,9 @@ namespace Project.Scripts.Interpreters
     }
     
     
+    /// <summary>
+    /// Service for executing Lua scripts.
+    /// </summary>
     public class LuaInterpreterService : IInterpreterService
     {
         private readonly CoreModules coreModules;
@@ -44,9 +48,64 @@ namespace Project.Scripts.Interpreters
             return functionName.Replace("get_", "Get")
                 .Replace("set_", "Set");
         }
+
+        private static void RegisterGlobalMethodInfos(Script script, IEnumerable<MethodInfo> globalMethodInfos)
+        {
+            globalMethodInfos ??= Array.Empty<MethodInfo>();
+            foreach (var globalMethodInfo in globalMethodInfos) 
+                script.Globals[FormatFunctionName(globalMethodInfo.Name)] = globalMethodInfo;
+        }
+
+        private static void RegisterTypes(Dictionary<Type, IEnumerable<MethodInfo>> localMethodInfos)
+        {
+            localMethodInfos ??= new Dictionary<Type, IEnumerable<MethodInfo>>();
+            
+            foreach (var (type, typeDelegates) in localMethodInfos)
+            {
+                if (type.IsEnum)
+                    continue;
+                
+                var description = (StandardUserDataDescriptor)UserData.RegisterType(type);
+                var members = description.Members.ToArray();
+                    
+                // Remove all members
+                foreach (var member in members) 
+                    description.RemoveMember(member.Key);
+                
+                if(typeDelegates is null)
+                    continue;
+                
+                // Add authorized members
+                var allowedMemberNames = typeDelegates.Select(method => method.Name).ToArray();
+                foreach (var authorizedMember in members.Where(m => allowedMemberNames.Contains(m.Key)))
+                {
+                    authorizedMember.Deconstruct(out var key, out var value);
+                    description.AddMember(FormatFunctionName(key), value);
+                }
+            }
+        }
+
+        private static void RegisterGlobalEnums(Script script, IEnumerable<Type> types)
+        {
+            types ??= Array.Empty<Type>();
+
+            foreach (var type in types)
+            {
+                UserData.RegisterType(type);
+                
+                var values = (int[])Enum.GetValues(type);
+                var names = Enum.GetNames(type);
+                
+                if(values.Length != names.Length)
+                    throw new InvalidOperationException("Enum values and names must have the same length.");
+
+                for (var i = 0; i < values.Length; i++) 
+                    script.Globals[$"{type.Name}_{names[i]}"] = values[i];
+            }
+        }
         
         
-        public void LoadScript(IEnumerable<Delegate> globalsDelegates, Dictionary<Type, IEnumerable<Delegate>> delegatesPerTypes, string code)
+        public void LoadScript(IEnumerable<MethodInfo> globalMethodInfos, Dictionary<Type, IEnumerable<MethodInfo>> methodInfos, string code)
         {
             // Clear references and functions
             Clear();
@@ -55,31 +114,17 @@ namespace Project.Scripts.Interpreters
             currentScript = new Script(coreModules) { DebuggerEnabled = debuggerEnabled };
 
             // Load globals delegates
-            foreach (var globalsDelegate in globalsDelegates) 
-                currentScript.Globals[FormatFunctionName(globalsDelegate.Method.Name)] = globalsDelegate;
+            RegisterGlobalMethodInfos(currentScript, globalMethodInfos);
+       
             
             // Load delegates per types
-            if (delegatesPerTypes is not null)
-            {
-                foreach (var (type, typeDelegates) in delegatesPerTypes)
-                {
-                    var description = (StandardUserDataDescriptor)UserData.RegisterType(type);
-                    var allowedMemberNames = typeDelegates.Select(d => d.Method.Name).ToArray();
-                    
-                    var members = description.Members.ToArray();
-                    
-                    // Remove all members
-                    foreach (var member in members) 
-                        description.RemoveMember(member.Key);
-                    
-                    // Add authorized members
-                    foreach (var authorizedMember in members.Where(m => allowedMemberNames.Contains(m.Key)))
-                    {
-                        authorizedMember.Deconstruct(out var key, out var value);
-                        description.AddMember(FormatFunctionName(key), value);
-                    }
-                }
-            }
+            methodInfos ??= new Dictionary<Type, IEnumerable<MethodInfo>>();
+            RegisterTypes(methodInfos.Where(x => !x.Key.IsEnum)
+                .ToDictionary(x => x.Key, x => x.Value));
+            
+            // Load enums
+            RegisterGlobalEnums(currentScript, methodInfos.Keys.Where(x => x.IsEnum));
+            
             
             // Load script
             currentScript.DoString(code);
