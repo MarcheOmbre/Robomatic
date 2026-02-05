@@ -1,0 +1,15 @@
+using Project.Scripts.Services.Components;
+using UnityEngine;
+
+namespace Project.Scripts.Player
+{
+    [CreateAssetMenu(fileName = "PlayerConfiguration", menuName = "Player/Configuration")]
+    public class PlayerConfiguration : ScriptableObject, ISpeedConfiguration
+    {
+        [SerializeField] [Min(0)] private float translationSpeed = 10f;
+        [SerializeField] [Min(0)] private float rotationSpeed = 10f;
+
+        public float TranslationSpeed => translationSpeed;
+        public float RotationSpeed => rotationSpeed;
+    }
+}

@@ -3370,8 +3370,8 @@ GameObject:
   - component: {fileID: 1029353368203799771}
   - component: {fileID: 5568034510070004883}
   - component: {fileID: 1489728035194183931}
-  - component: {fileID: 3250000373213057290}
-  - component: {fileID: 3856493834268199844}
+  - component: {fileID: 3156388022551210995}
+  - component: {fileID: 4244956044934988770}
   m_Layer: 0
   m_Name: Robot
   m_TagString: Untagged
@@ -3444,7 +3444,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!143 &3250000373213057290
+--- !u!143 &3156388022551210995
 CharacterController:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3462,14 +3462,14 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 0.1
-  m_Radius: 0.06
+  m_Height: 0.12
+  m_Radius: 0.05
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.06, z: 0}
---- !u!114 &3856493834268199844
+--- !u!114 &4244956044934988770
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3478,12 +3478,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7168976719137306462}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 931e34e310c02ad28b43ecd7010bfc97, type: 3}
+  m_Script: {fileID: 11500000, guid: 405226143855150879637c9a2ce96c7f, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Entities.Robot
-  translationSpeed: 5
-  rotationSpeed: 150
-  controller: {fileID: 3250000373213057290}
+  m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Player.Player
+  configuration: {fileID: 11400000, guid: 3cc726e8a48eddc8b9fc96f023ea20fe, type: 2}
+  characterController: {fileID: 3156388022551210995}
 --- !u!1 &7431197748701410340
 GameObject:
   m_ObjectHideFlags: 0

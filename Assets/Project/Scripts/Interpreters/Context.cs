@@ -8,18 +8,18 @@ namespace Project.Scripts.Interpreters
     public static class Context
     {
         [UsedImplicitly]
-        public static Player Me
+        public static Player.Player Me
         {
-            [AuthorizedMethod] get => EntitiesManager.Instance.Entities.OfType<Player>().FirstOrDefault();
+            [AuthorizedHelper.AuthorizedMethod] get => EntitiesManager.Instance.Entities.OfType<Player.Player>().FirstOrDefault();
         }
 
         [UsedImplicitly]
-        [AuthorizedMethod]
+        [AuthorizedHelper.AuthorizedMethod]
         public static AEntity GetFirstEntityOfType(EntityType type) =>
             EntitiesManager.Instance.Entities.FirstOrDefault(e => e.EntityType == type);
 
         [UsedImplicitly]
-        [AuthorizedMethod]
+        [AuthorizedHelper.AuthorizedMethod]
         public static void Debug(string value) => UnityEngine.Debug.Log(value);
     }
 }

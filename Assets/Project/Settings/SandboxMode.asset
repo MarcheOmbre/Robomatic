@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb7abb52542242c9bca39bfbe0b4a065, type: 3}
   m_Name: SandboxMode
   m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.GameModes.SandboxMode
-  playerPrefab: {fileID: 3856493834268199844, guid: fb129e87881022bbc938103034e00a33, type: 3}
+  playerPrefab: {fileID: 4244956044934988770, guid: fb129e87881022bbc938103034e00a33, type: 3}
   balloonPrefab: {fileID: 6139415449155271961, guid: e669777f8ef9231e9938d17cf86eb643, type: 3}

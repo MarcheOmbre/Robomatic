@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,47 +20,18 @@ namespace Project.Scripts.Interpreters
         private const string StopFunctionName = "Stop";
 
         [SerializeField] private AInterpreterSettings interpreterSettings;
-        
-        
+
+
         private CancellationTokenSource cancellationTokenSource;
 
 
         private void OnDisable() => Stop();
 
 
-        private static Dictionary<Type, IEnumerable<MethodInfo>> ExtractMethodInfos()
-        {
-            var assembly = typeof(Context).Assembly;
-            
-            // Get authorized types
-            var dictionary = assembly.GetTypes().Where(type => type.CustomAttributes
-                .Any(attribute => attribute.AttributeType == typeof(AuthorizedType)))
-                .ToDictionary<Type, Type, IEnumerable<MethodInfo>>(type => type, _ => Array.Empty<MethodInfo>());
-
-            // Get authorized methods
-            foreach (var type in assembly.GetTypes())
-            {
-                var delegates = type.GetMethods().Where(method => method.CustomAttributes
-                    .Any(attribute => attribute.AttributeType == typeof(AuthorizedMethod)))
-                    .ToArray();
-                
-                if(!delegates.Any())
-                    continue;
-                
-                if(!dictionary.ContainsKey(type))
-                    dictionary.Add(type, Array.Empty<MethodInfo>());
-                
-                dictionary[type] = dictionary[type].Concat(delegates);
-            }
-            
-            return dictionary.ToDictionary(x => x.Key, x => x.Value.AsEnumerable());
-        }
-        
-        
         private async Task GameLoopProcess(AInterpreterSettings interpreter, CancellationToken token)
         {
             interpreter.Service.CallFunction(StartFunctionName);
-            
+
             while (!cancellationTokenSource.IsCancellationRequested)
             {
                 interpreter.Service.CallFunction(UpdateFunctionName);
@@ -77,9 +47,9 @@ namespace Project.Scripts.Interpreters
                 throw new InvalidOperationException("Script is already running.");
 
             // Load delegates
-            var methodInfosPerType = ExtractMethodInfos();
+            var methodInfosPerType = AuthorizedHelper.ExtractTypesAndMethods();
             var globalMethodInfos = new List<MethodInfo>();
-            
+
             // Separate context delegates from other delegates
             var contextType = typeof(Context);
             if (methodInfosPerType.ContainsKey(contextType))
@@ -87,19 +57,19 @@ namespace Project.Scripts.Interpreters
                 globalMethodInfos.AddRange(methodInfosPerType[contextType]);
                 methodInfosPerType.Remove(contextType);
             }
-                
+
             interpreterSettings.Service.LoadScript(globalMethodInfos, methodInfosPerType, code);
 
             // Start the game loop
             cancellationTokenSource = new CancellationTokenSource();
-            
+
             try
             {
                 await GameLoopProcess(interpreterSettings, cancellationTokenSource.Token);
             }
             catch (Exception e)
             {
-                if(e is not OperationCanceledException)
+                if (e is not OperationCanceledException)
                     Debug.LogException(e);
             }
 

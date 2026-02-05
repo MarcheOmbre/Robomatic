@@ -15,7 +15,7 @@ namespace Project.Scripts.GameModes
     {
         private HashSet<AEntity> spawnedEntities = new();
         
-        [SerializeField] private Player playerPrefab;
+        [SerializeField] private Player.Player playerPrefab;
         [SerializeField] private Balloon balloonPrefab;
         
         public override void Initialize()

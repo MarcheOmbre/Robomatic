@@ -5,7 +5,7 @@ namespace Project.Scripts.Entities
 {
     [Flags]
     [Serializable]
-    [AuthorizedType]
+    [AuthorizedHelper.AuthorizedType]
     public enum EntityType
     {
         None = 0,

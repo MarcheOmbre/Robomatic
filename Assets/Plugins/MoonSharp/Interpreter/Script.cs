@@ -46,8 +46,8 @@ namespace MoonSharp.Interpreter
 
 			DefaultOptions = new ScriptOptions()
 			{
-				DebugPrint = s => { Script.GlobalOptions.Platform.DefaultPrint(s); },
-				DebugInput = s => { return Script.GlobalOptions.Platform.DefaultInput(s); },
+				DebugPrint = s => { GlobalOptions.Platform.DefaultPrint(s); },
+				DebugInput = s => { return GlobalOptions.Platform.DefaultInput(s); },
 				CheckThreadAccess = true,
 				ScriptLoader = PlatformAutoDetector.GetDefaultScriptLoader(),
 				TailCallOptimizationThreshold = 65536
@@ -477,7 +477,7 @@ namespace MoonSharp.Interpreter
 			}
 			else if (function.Type == DataType.ClrFunction)
 			{
-				return function.Callback.ClrCallback(this.CreateDynamicExecutionContext(function.Callback), new CallbackArguments(args, false));
+				return function.Callback.ClrCallback(CreateDynamicExecutionContext(function.Callback), new CallbackArguments(args, false));
 			}
 
 			return m_MainProcessor.Call(function, args);
@@ -735,7 +735,7 @@ namespace MoonSharp.Interpreter
 			subproduct = (subproduct != null) ? (subproduct + " ") : "";
 
 			StringBuilder sb = new StringBuilder();
-			sb.AppendLine(string.Format("MoonSharp {0}{1} [{2}]", subproduct, Script.VERSION, Script.GlobalOptions.Platform.GetPlatformName()));
+			sb.AppendLine(string.Format("MoonSharp {0}{1} [{2}]", subproduct, VERSION, GlobalOptions.Platform.GetPlatformName()));
 			sb.AppendLine("Copyright (C) 2014-2016 Marco Mastropaolo");
 			sb.AppendLine("http://www.moonsharp.org");
 			return sb.ToString();

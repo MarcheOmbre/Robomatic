@@ -60,27 +60,25 @@ namespace Project.Scripts.Interpreters
         {
             localMethodInfos ??= new Dictionary<Type, IEnumerable<MethodInfo>>();
             
-            foreach (var (type, typeDelegates) in localMethodInfos)
+            foreach (var (type, methodsInfos) in localMethodInfos)
             {
+                var methodsArray = methodsInfos?.ToArray() ?? Array.Empty<MethodInfo>();
                 if (type.IsEnum)
                     continue;
                 
-                var description = (StandardUserDataDescriptor)UserData.RegisterType(type);
-                var members = description.Members.ToArray();
-                    
-                // Remove all members
-                foreach (var member in members) 
-                    description.RemoveMember(member.Key);
+                // Hide all members except authorized ones
+                var description = new StandardUserDataDescriptor(type, InteropAccessMode.HideMembers);
+
+                // Add back all authorized members
+                foreach (var methodInfo in methodsArray) 
+                    description.AddMember(FormatFunctionName(methodInfo.Name), new MethodMemberDescriptor(methodInfo));
                 
-                if(typeDelegates is null)
-                    continue;
-                
-                // Add authorized members
-                var allowedMemberNames = typeDelegates.Select(method => method.Name).ToArray();
-                foreach (var authorizedMember in members.Where(m => allowedMemberNames.Contains(m.Key)))
+                // Add the type to the script
+                UserData.RegisterType(type, description);
+
+                foreach (var descriptionMemberName in description.MemberNames)
                 {
-                    authorizedMember.Deconstruct(out var key, out var value);
-                    description.AddMember(FormatFunctionName(key), value);
+                    Debug.Log($"Registering {type.Name}.{descriptionMemberName}");
                 }
             }
         }
@@ -91,8 +89,6 @@ namespace Project.Scripts.Interpreters
 
             foreach (var type in types)
             {
-                UserData.RegisterType(type);
-                
                 var values = (int[])Enum.GetValues(type);
                 var names = Enum.GetNames(type);
                 
@@ -124,7 +120,6 @@ namespace Project.Scripts.Interpreters
             
             // Load enums
             RegisterGlobalEnums(currentScript, methodInfos.Keys.Where(x => x.IsEnum));
-            
             
             // Load script
             currentScript.DoString(code);
