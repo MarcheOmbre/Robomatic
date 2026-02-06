@@ -4,28 +4,12 @@ using System.Linq;
 using System.Reflection;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
-using Project.Scripts.Interpreters.Abstracts;
 using Project.Scripts.Services;
 using UnityEngine;
 
-namespace Project.Scripts.Interpreters
+namespace Project.Scripts.Interpreters.Lua
 {
-    [Serializable]
-    [CreateAssetMenu(fileName = "LuaInterpreterSettings", menuName = "Interpreter/Lua Interpreter Settings", order = 0)]
-    public class LuaInterpreterSettings : AInterpreterSettings
-    {
-        [SerializeField] private CoreModules coreModules;
-        [SerializeField] private bool debuggerEnabled;
-
-
-        protected override IInterpreterService GetInterpreterService()
-        {
-            return new LuaInterpreterService(coreModules, debuggerEnabled);
-        }
-    }
-    
-    
-    /// <summary>
+/// <summary>
     /// Service for executing Lua scripts.
     /// </summary>
     public class LuaInterpreterService : IInterpreterService
@@ -34,12 +18,16 @@ namespace Project.Scripts.Interpreters
         private readonly bool debuggerEnabled;
 
         private Script currentScript;
-        
+
 
         public LuaInterpreterService(CoreModules coreModules, bool debuggerEnabled)
         {
             this.coreModules = coreModules;
             this.debuggerEnabled = debuggerEnabled;
+
+            // Register custom Types
+            new CustomVector2().Register();
+            new CustomVector3().Register();
         }
 
 
@@ -76,10 +64,10 @@ namespace Project.Scripts.Interpreters
                 // Add the type to the script
                 UserData.RegisterType(type, description);
 
-                foreach (var descriptionMemberName in description.MemberNames)
-                {
+                #if UNITY_EDITOR
+                foreach (var descriptionMemberName in description.MemberNames) 
                     Debug.Log($"Registering {type.Name}.{descriptionMemberName}");
-                }
+                #endif
             }
         }
 
