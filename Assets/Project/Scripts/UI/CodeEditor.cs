@@ -25,6 +25,8 @@ namespace Project.Scripts.UI
         
         private void OnDisable()
         {
+            Stop();
+            
             runButton.onClick.RemoveListener(Run);
             stopButton.onClick.RemoveListener(Stop);
         }
