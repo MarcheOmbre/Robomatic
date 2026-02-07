@@ -1,0 +1,27 @@
+*{
+    --main_padding: 5px;
+    --main_space: 5px;
+    --main_border_size: 1px;
+    --main_border_color: #9a95fb;
+    
+    margin: 0;
+    font-size: 20px;
+}
+
+VisualElement
+{
+    padding: var(--main_padding);
+}
+
+Button
+{
+    height: 50px;
+    width: 150px;
+    
+    border-radius: 10px;
+}
+
+#space
+{
+    height: var(--main_space);
+}

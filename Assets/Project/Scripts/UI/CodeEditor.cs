@@ -3,45 +3,51 @@ using Project.Scripts.Interpreters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
+using Button = UnityEngine.UIElements.Button;
 
 namespace Project.Scripts.UI
 {
     public class CodeEditor : MonoBehaviour
     {
-        [SerializeField] private TMP_InputField inputField;
-        [SerializeField] private Button runButton;
-        [SerializeField] private Button stopButton;
-
+        [SerializeField] private UIDocument document;
+    
+        private TextField codeTextElement;
+        private Button runButton;
+        private Button stopButton;
+        
         private void Awake()
         {
-            stopButton.interactable = false;
+            codeTextElement = document.rootVisualElement.Q<TextField>("code_editor");
+            runButton = document.rootVisualElement.Q<Button>("button_run");
+            stopButton = document.rootVisualElement.Q<Button>("button_stop");
         }
 
         private void OnEnable()
         {
-            runButton.onClick.AddListener(Run);
-            stopButton.onClick.AddListener(Stop);
+            runButton.clicked += Run;
+            stopButton.clicked += Stop;
         }
         
         private void OnDisable()
         {
             Stop();
             
-            runButton.onClick.RemoveListener(Run);
-            stopButton.onClick.RemoveListener(Stop);
+            runButton.clicked -= Run;
+            stopButton.clicked -= Stop;
         }
 
         private async void Run()
         {
             try
             {
-                runButton.interactable = false;
-                stopButton.interactable = true;
+                runButton.SetEnabled(false);
+                stopButton.SetEnabled(true);
             
-                await Interpreter.Instance.Run(inputField.text);
+                await Interpreter.Instance.Run(codeTextElement.text);
             
-                runButton.interactable = true;
-                stopButton.interactable = false;
+                runButton.SetEnabled(true);
+                stopButton.SetEnabled(false);
             }
             catch (Exception e)
             {
@@ -53,8 +59,9 @@ namespace Project.Scripts.UI
         private void Stop()
         {
             Interpreter.Instance.Stop();
-            runButton.interactable = true;
-            stopButton.interactable = false;
+            
+            runButton.SetEnabled(true);
+            stopButton.SetEnabled(false);
         }
     }
 }

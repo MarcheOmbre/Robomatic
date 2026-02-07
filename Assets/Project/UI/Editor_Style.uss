@@ -1,0 +1,33 @@
+#background {
+    width: 50%;
+    height: 100%;
+    
+    margin-left: auto;
+    background-color: black;
+    border-left-width: var(--main_border_size);
+    border-color: var(--main_border_color);
+    
+    padding: 20px;
+}
+
+#code_editor Label{
+    display: none;
+}
+
+#code_editor {
+    flex-grow: 1;
+    background-color: blue;
+    border-radius: 20px;
+}
+
+TextEdit.input {
+    background-color: black;
+}
+
+#footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 0;
+}
