@@ -119,19 +119,24 @@ namespace Project.Scripts.Player
 
         public async Task WaitMoveToPosition(Vector2 position)
         {
-            if (moveToPositionCancellationTokenSource is not null && position == movePositionTarget)
-                return;
-
-            moveToPositionCancellationTokenSource?.Cancel();
+            if(moveToPositionCancellationTokenSource is not null)
+                throw new InvalidOperationException("A move to position is already in progress.");
+            
             moveToPositionCancellationTokenSource = new CancellationTokenSource();
 
             movePositionTarget = position;
 
             while (!ReachedPosition(Vector2FromVector3(characterController.transform.position), movePositionTarget))
             {
+                if (moveToPositionCancellationTokenSource.IsCancellationRequested)
+                    break;
+                
                 MoveToPosition(movePositionTarget);
-                await Awaitable.EndOfFrameAsync(moveToPositionCancellationTokenSource.Token);
+                await Awaitable.EndOfFrameAsync();
             }
+            
+            moveToPositionCancellationTokenSource.Dispose();
+            moveToPositionCancellationTokenSource = null;
         }
 
         public void Follow(AEntity entity)
