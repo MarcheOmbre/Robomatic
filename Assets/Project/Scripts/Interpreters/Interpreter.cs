@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,8 +47,7 @@ namespace Project.Scripts.Interpreters
             // Run the interpreter
             try
             {
-                await Task.Run(() => interpreterSettings.Service.Execute(globalMethodInfos, methodInfosPerType, code,
-                    cancellationTokenSource.Token));
+                await interpreterSettings.Service.Execute(globalMethodInfos, methodInfosPerType, code, cancellationTokenSource.Token);
             }
             catch (Exception error)
             {

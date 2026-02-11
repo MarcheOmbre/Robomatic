@@ -1,4 +1,3 @@
-using System;
 using JetBrains.Annotations;
 using Project.Scripts.Entities;
 using Project.Scripts.Entities.Abstracts;

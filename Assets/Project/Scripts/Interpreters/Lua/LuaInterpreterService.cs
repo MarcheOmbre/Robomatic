@@ -18,6 +18,7 @@ namespace Project.Scripts.Interpreters.Lua
     {
         private readonly CoreModules coreModules;
         private readonly bool debuggerEnabled;
+        private bool isCodePaused;
 
 
         public LuaInterpreterService(CoreModules coreModules, bool debuggerEnabled)
@@ -84,7 +85,12 @@ namespace Project.Scripts.Interpreters.Lua
                     throw new InvalidOperationException("Enum values and names must have the same length.");
 
                 for (var i = 0; i < values.Length; i++)
+                {
                     script.Globals[$"{type.Name}_{names[i]}"] = values[i];
+#if UNITY_EDITOR
+                    Debug.Log($"Registering enum : {type.Name}_{names[i]}");
+#endif
+                }
             }
         }
 
@@ -107,7 +113,8 @@ namespace Project.Scripts.Interpreters.Lua
         {
             // Create the script and load the code
             var script = new Script(coreModules) { DebuggerEnabled = debuggerEnabled };
-
+            isCodePaused = false;
+            
             // Load globals delegates
             RegisterGlobalMethodInfos(script, globalMethodInfos);
 
@@ -127,7 +134,11 @@ namespace Project.Scripts.Interpreters.Lua
             var coroutine = script.CreateCoroutine(function);
             foreach (DynValue unused in coroutine.Coroutine.AsEnumerable())
             {
-                await Task.Yield();
+                // If paused, loop on the waiting state
+                do
+                {
+                    await Task.Yield();
+                } while (isCodePaused);
                 
                 if(cancellationToken.IsCancellationRequested)
                     break;

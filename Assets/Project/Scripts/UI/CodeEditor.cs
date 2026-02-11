@@ -1,8 +1,6 @@
 using System;
 using Project.Scripts.Interpreters;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.UIElements;
 using Button = UnityEngine.UIElements.Button;
 
@@ -21,6 +19,8 @@ namespace Project.Scripts.UI
             codeTextElement = document.rootVisualElement.Q<TextField>("code_editor");
             runButton = document.rootVisualElement.Q<Button>("button_run");
             stopButton = document.rootVisualElement.Q<Button>("button_stop");
+            
+            stopButton.SetEnabled(false);
         }
 
         private void OnEnable()

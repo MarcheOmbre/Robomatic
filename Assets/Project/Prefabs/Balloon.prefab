@@ -153,3 +153,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99d7a37219a34979a3d50173f3e137a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Entities.Balloon
+  mainCollider: {fileID: 3198653398272390359}

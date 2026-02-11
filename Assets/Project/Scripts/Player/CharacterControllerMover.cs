@@ -1,7 +1,6 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Project.Scripts.Entities.Abstracts;
+using Project.Scripts.Interpreters.Exceptions;
 using Project.Scripts.Services.Components;
 using Project.Scripts.Utils;
 using UnityEngine;
@@ -15,10 +14,29 @@ namespace Project.Scripts.Player
         private readonly CharacterController characterController;
         private readonly ISpeedConfiguration speedConfiguration;
 
-        private Vector2 movePositionTarget;
-        private Vector3 rotateDirectionTarget;
-        private float rotateSmoothVelocity;
-        private CancellationTokenSource moveToPositionCancellationTokenSource;
+
+        private float MoveDeltaTime
+        {
+            get
+            {
+                var currentTime = Time.time;
+                var deltaTime = currentTime - moveLastTime;
+                return Mathf.Min(deltaTime, Time.deltaTime);
+            }
+        }
+
+        private float RotationDeltaTime
+        {
+            get
+            {
+                var currentTime = Time.time;
+                var deltaTime = currentTime - lastRotationTime;
+                return Mathf.Min(deltaTime, Time.deltaTime);
+            }
+        }
+        
+        private float moveLastTime;
+        private float lastRotationTime;
 
 
         public CharacterControllerMover(CharacterController controller, ISpeedConfiguration configuration)
@@ -29,10 +47,6 @@ namespace Project.Scripts.Player
             speedConfiguration = configuration ??
                                  throw new ArgumentNullException(nameof(configuration),
                                      "Speed configuration cannot be null");
-
-
-            LookInDirection(Vector2FromVector3(characterController.transform.forward));
-            _ = RefreshRotationProcess();
         }
 
 
@@ -44,55 +58,42 @@ namespace Project.Scripts.Player
         private static Vector3 Vector3FromVector2(Vector2 vector) => new(vector.x, 0, vector.y);
         
         
-        private void MoveTo(Vector2 position)
+        private void Move(Vector2 position)
         {
             var newPosition = Vector3.ProjectOnPlane(Vector3FromVector2(position) - characterController.transform.position, Vector3.up);
             characterController.Move(newPosition);
         }
+        
 
-
-        private async Task RefreshRotationProcess()
+        public bool LookAt(Vector2 direction)
         {
-            while (true)
-            {
-                var currentForwardDirection = characterController.transform.forward;
-                if (rotateDirectionTarget == Vector3.zero)
-                    throw new ApplicationException("Cannot look at zero direction.");
+            var rotateDirectionTarget = Vector3FromVector2(direction.normalized);
+            if (rotateDirectionTarget == Vector3.zero)
+                throw new VectorZeroException(nameof(LookAt));
 
-                if (currentForwardDirection != rotateDirectionTarget)
-                {
-                    var currentRotation = characterController.transform.rotation;
-                    var targetRotation = Quaternion.LookRotation(rotateDirectionTarget, Vector3.up);
+            var currentRotation = characterController.transform.rotation;
+            var targetRotation = Quaternion.LookRotation(rotateDirectionTarget, Vector3.up);
 
-                    characterController.transform.rotation = Quaternion.RotateTowards(currentRotation, targetRotation,
-                        speedConfiguration.RotationSpeed * Time.deltaTime);
-                }
-
-                await Awaitable.EndOfFrameAsync();
-            }
-        }
-
-
-        public void LookInDirection(Vector2 direction)
-        {
-            direction = direction.normalized;
-            if (direction == Vector2.zero)
-                return;
+            var lastRotation = characterController.transform.rotation;
             
-            rotateDirectionTarget = Vector3FromVector2(direction);
+            characterController.transform.rotation = Quaternion.RotateTowards(currentRotation, targetRotation,
+                speedConfiguration.RotationSpeed * RotationDeltaTime);
+            
+            return lastRotation == characterController.transform.rotation;
         }
 
-        public void LookAt(AEntity entity)
+        public bool LookAt(AEntity entity)
         {
-            if (entity is null || entity.transform == characterController.transform)
-                return;
+            if (entity is null)
+                throw new NullEntityException(nameof(LookAt));
 
             var entityPositionVector2 = Vector2FromVector3(entity.transform.position);
             var characterPositionVector2 = Vector2FromVector3(characterController.transform.position);
-            LookInDirection(entityPositionVector2 - characterPositionVector2);
+            
+            return LookAt(entityPositionVector2 - characterPositionVector2);
         }
 
-        public void MoveInDirection(Vector2 direction, float? speed)
+        public void MoveToward(Vector2 direction, float? speed)
         {
             if(direction == Vector2.zero)
                 return;
@@ -101,61 +102,41 @@ namespace Project.Scripts.Player
             speed = Mathf.Clamp(speed.Value, 0, speedConfiguration.TranslationSpeed);
             
             var position = Vector2FromVector3(characterController.transform.position) + 
-                           direction.normalized * speed.Value * Time.deltaTime;
-            MoveTo(position);
+                           direction.normalized * speed.Value * MoveDeltaTime;
+            Move(position);
         }
         
-        public void MoveToPosition(Vector2 position)
+        public bool Reach(Vector2 position)
         {
             var characterPositionVector2 = Vector2FromVector3(characterController.transform.position);
-            if (ReachedPosition(characterPositionVector2, position))
-                return;
-            
-            LookInDirection(position - characterPositionVector2);
+
+            if (!LookAt(position - characterPositionVector2))
+                return false;
             
             var remainingDistance = Vector3.Distance(characterPositionVector2, position);
-            MoveInDirection(position - characterPositionVector2, remainingDistance);
+            MoveToward(position - characterPositionVector2, remainingDistance);
+            
+            return ReachedPosition(characterPositionVector2, position);
         }
 
-        public async Task WaitMoveToPosition(Vector2 position)
-        {
-            if(moveToPositionCancellationTokenSource is not null)
-                throw new InvalidOperationException("A move to position is already in progress.");
-            
-            moveToPositionCancellationTokenSource = new CancellationTokenSource();
-
-            movePositionTarget = position;
-
-            while (!ReachedPosition(Vector2FromVector3(characterController.transform.position), movePositionTarget))
-            {
-                if (moveToPositionCancellationTokenSource.IsCancellationRequested)
-                    break;
-                
-                MoveToPosition(movePositionTarget);
-                await Awaitable.EndOfFrameAsync();
-            }
-            
-            moveToPositionCancellationTokenSource.Dispose();
-            moveToPositionCancellationTokenSource = null;
-        }
-
-        public void Follow(AEntity entity)
+        public bool Reach(AEntity entity)
         {
             if (entity is null)
-                return;
+                throw new NullEntityException(nameof(Reach));
 
-            MoveToPosition(Vector2FromVector3(entity.transform.position));
+            var reachedPosition = Reach(Vector2FromVector3(entity.transform.position));
+            return reachedPosition || characterController.bounds.Intersects(entity.MainCollider.bounds);
         }
 
-        public void TurnAroundPoint(Vector2 center, bool clockWise = true, float? radius = null)
+        public void TurnAround(Vector2 center, bool clockWise = true, float? radius = null)
         {
             // If try to turn around itself, make it turn!
             var position = Vector2FromVector3(characterController.transform.position);
             if (center == position)
             {
-                var nextDirection = speedConfiguration.RotationSpeed * Time.deltaTime * (clockWise ? -1 : 1);
+                var nextDirection = speedConfiguration.RotationSpeed * RotationDeltaTime * (clockWise ? -1 : 1);
                 var lookDirectionVector2 = Vector2FromVector3(characterController.transform.forward);
-                LookInDirection(lookDirectionVector2.Rotate(nextDirection));
+                LookAt(lookDirectionVector2.Rotate(nextDirection));
                 return;
             }
 
@@ -167,17 +148,17 @@ namespace Project.Scripts.Player
             // Move to the nearest point on the circle ;
             if (!ReachedPosition(position, nearestPoint))
             {
-                MoveToPosition(nearestPoint);
+                Reach(nearestPoint);
                 return;
             }
 
             // Move to the next point on the circle
             var angleToRotate = MathsHelper.GetCircleAngleFromCircumferenceDistance(
-                    speedConfiguration.TranslationSpeed * Time.deltaTime, radius.Value);
+                    speedConfiguration.TranslationSpeed * MoveDeltaTime, radius.Value);
             
             // Rotate around the center
             var nextPoint = center + centerToCurrentPosition.Rotate(angleToRotate * (clockWise ? 1 : -1));
-            MoveTo(nextPoint);
+            Move(nextPoint);
         }
 
         public void TurnAround(AEntity entity, bool clockWise = true)
@@ -185,7 +166,7 @@ namespace Project.Scripts.Player
             if (entity is null)
                 return;
 
-            TurnAroundPoint(Vector2FromVector3(entity.transform.position), clockWise);
+            TurnAround(Vector2FromVector3(entity.transform.position), clockWise);
         }
     }
 }

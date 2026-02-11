@@ -3481,6 +3481,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 405226143855150879637c9a2ce96c7f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Player.Player
+  mainCollider: {fileID: 3156388022551210995}
   configuration: {fileID: 11400000, guid: 3cc726e8a48eddc8b9fc96f023ea20fe, type: 2}
   characterController: {fileID: 3156388022551210995}
 --- !u!1 &7431197748701410340

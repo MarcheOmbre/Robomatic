@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace Project.Scripts.Utils.Tests
         {
             if (radius < 0)
             {
-                Assert.Catch<System.ArgumentException>(() => MathsHelper.GetCircleNearestPoint(center, radius, point));
+                Assert.Catch<ArgumentException>(() => MathsHelper.GetCircleNearestPoint(center, radius, point));
                 return;
             }
             
@@ -65,13 +66,13 @@ namespace Project.Scripts.Utils.Tests
         [Test]
         public void GetCircleAngleFromCircumferenceDistance_RadiusNegative()
         {
-            Assert.Catch<System.ArgumentException>(() => MathsHelper.GetCircleAngleFromCircumferenceDistance(1, -1));
+            Assert.Catch<ArgumentException>(() => MathsHelper.GetCircleAngleFromCircumferenceDistance(1, -1));
         }
 
         [Test]
         public void GetCircleAngleFromCircumferenceDistance_RadiusZero()
         {
-            Assert.Catch<System.ArgumentException>(() => MathsHelper.GetCircleAngleFromCircumferenceDistance(1, 0));
+            Assert.Catch<ArgumentException>(() => MathsHelper.GetCircleAngleFromCircumferenceDistance(1, 0));
         }
 
         [Test]

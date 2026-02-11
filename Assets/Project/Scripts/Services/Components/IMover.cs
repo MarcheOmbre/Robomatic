@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters;
@@ -10,31 +9,27 @@ namespace Project.Scripts.Services.Components
     {
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void LookInDirection(Vector2 direction);
+        public bool LookAt(Vector2 direction);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void LookAt(AEntity entity);
+        public bool LookAt(AEntity entity);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void MoveInDirection(Vector2 direction, float? speed = null);
+        public void MoveToward(Vector2 direction, float? speed = null);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void MoveToPosition(Vector2 position);
-        
-        [UsedImplicitly]
-        [AuthorizedHelper.AuthorizedMethod(true)]
-        public Task WaitMoveToPosition(Vector2 position);
+        public bool Reach(Vector2 position);
 
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void Follow(AEntity entity);
+        public bool Reach(AEntity entity);
 
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void TurnAroundPoint(Vector2 center, bool clockWise = false, float? radius = null);
+        public void TurnAround(Vector2 center, bool clockWise = false, float? radius = null);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
