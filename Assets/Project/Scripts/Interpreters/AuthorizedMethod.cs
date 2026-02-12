@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Project.Scripts.Interpreters.Libraries;
-using Project.Scripts.Interpreters.Lua.Libraries;
-using UnityEngine;
 
 namespace Project.Scripts.Interpreters
 {

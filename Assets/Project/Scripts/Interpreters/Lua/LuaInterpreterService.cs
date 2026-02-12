@@ -52,8 +52,22 @@ namespace Project.Scripts.Interpreters.Lua
         }
 
         private static string FormatEnumName(string name) => name is not { Length: > 0 } ? string.Empty : name.ToUpper();
+        
+        private static string FormatCode(string code)
+        {
+            if (code is null)
+                return string.Empty;
 
+            // Add yield at each loop
+            code = code.Replace("do", "do coroutine.yield()");
 
+            // Wrap the code in a function
+            code = $" return function() {code} end";
+
+            return code;
+        }
+        
+        
         private static void RegisterDynamicMembers(Dictionary<Type, HashSet<MethodInfo>> members)
         {
             members ??= new Dictionary<Type, HashSet<MethodInfo>>();
@@ -145,9 +159,7 @@ namespace Project.Scripts.Interpreters.Lua
                 }
             }
         }
-
-
-
+        
         private static void RegisterExternalModules(Script script, HashSet<ALuaLibrary> modules)
         {
             if (modules is not { Count: > 0 })
@@ -173,20 +185,7 @@ namespace Project.Scripts.Interpreters.Lua
                 }
             }
         }
-        private static string PostProcess(string code)
-        {
-            if (code is null)
-                return string.Empty;
-
-            // Add yield at each loop
-            code = code.Replace("do", "do coroutine.yield()");
-
-            // Wrap the code in a function
-            code = $" return function() {code} end";
-
-            return code;
-        }
-
+        
 
         public async Task Execute(Dictionary<Type, HashSet<MethodInfo>> members, string code,
             CancellationToken cancellationToken = default)
@@ -225,7 +224,7 @@ namespace Project.Scripts.Interpreters.Lua
             });
 
             // Encapsulate in coroutine
-            code = PostProcess(code);
+            code = FormatCode(code);
 
             // Execute the code
             var function = script.DoString(code);
@@ -253,9 +252,9 @@ namespace Project.Scripts.Interpreters.Lua
             if (exception is null)
                 return string.Empty;
 
-            if (exception is SyntaxErrorException syntaxErrorException)
+            if (exception is InterpreterException interpreterException)
             {
-                var decoratedMessage = syntaxErrorException.DecoratedMessage;
+                var decoratedMessage = interpreterException.DecoratedMessage;
 
                 var firstIndex = decoratedMessage.IndexOf('(');
                 var lastIndex = decoratedMessage.LastIndexOf(',');
@@ -263,7 +262,7 @@ namespace Project.Scripts.Interpreters.Lua
                 if (firstIndex != -1 && lastIndex != -1)
                 {
                     var line = decoratedMessage.Substring(firstIndex + 1, lastIndex - firstIndex - 1);
-                    return $"Error at line {line}: {syntaxErrorException.Message}";
+                    return $"Error at line {line}: {interpreterException.Message}";
                 }
             }
 
