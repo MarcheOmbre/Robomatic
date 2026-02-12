@@ -44,8 +44,8 @@ namespace Project.Scripts.Player
         private Vector3 lastPosition;
         private float lastComputedSpeedTime;
 
-        
-        private void Awake() => mover = new CharacterControllerMover(characterController, configuration);
+
+        protected override void Awake() => mover = new CharacterControllerMover(characterController, configuration);
         
         private void Update()
         {
