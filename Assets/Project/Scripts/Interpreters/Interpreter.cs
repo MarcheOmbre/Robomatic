@@ -17,13 +17,12 @@ namespace Project.Scripts.Interpreters
     {
         [SerializeField] private AInterpreterSettings interpreterSettings;
 
-        
+
         private CancellationTokenSource cancellationTokenSource;
 
 
         private void OnDisable() => Stop();
 
-        
 
         public async Task Run(string code)
         {
@@ -31,27 +30,30 @@ namespace Project.Scripts.Interpreters
                 throw new InvalidOperationException("Script is already running.");
 
             cancellationTokenSource = new CancellationTokenSource();
-            
+
             // Load delegates
             var methodInfosPerType = AuthorizedHelper.ExtractTypesAndMethods();
-            var globalMethodInfos = new List<MethodInfo>();
+            var globalMethodInfos = new HashSet<MethodInfo>();
 
             // Separate context delegates from other delegates
             var contextType = typeof(Context);
             if (methodInfosPerType.ContainsKey(contextType))
             {
-                globalMethodInfos.AddRange(methodInfosPerType[contextType]);
+                foreach (var methodInfo in methodInfosPerType[contextType])
+                    globalMethodInfos.Add(methodInfo);
+                
                 methodInfosPerType.Remove(contextType);
             }
 
             // Run the interpreter
             try
             {
-                await interpreterSettings.Service.Execute(globalMethodInfos, methodInfosPerType, code, cancellationTokenSource.Token);
+                await interpreterSettings.Service.Execute(globalMethodInfos, methodInfosPerType, code,
+                    cancellationTokenSource.Token);
             }
             catch (Exception error)
             {
-                Debug.LogWarning(error.Message);
+                Debug.LogWarning(interpreterSettings.Service.FormatErrorMessage(error));
             }
             finally
             {

@@ -8,7 +8,9 @@ namespace Project.Scripts.Services
 {
     public interface IInterpreterService
     {
-        public Task Execute(IEnumerable<MethodInfo> globalMethodInfos, Dictionary<Type, IEnumerable<MethodInfo>> methodInfos, string code,
+        public Task Execute(HashSet<MethodInfo> globalMethodInfos, Dictionary<Type, HashSet<MethodInfo>> methodInfos, string code,
             CancellationToken cancellationToken = default);
+        
+        public string FormatErrorMessage(Exception exception);
     }
 }

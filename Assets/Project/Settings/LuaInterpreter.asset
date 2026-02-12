@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: LuaInterpreter
   m_EditorClassIdentifier: Assembly-CSharp::Project.Scripts.Interpreters.LuaInterpreterSettings
   coreModules: 102383
+  externalModules:
+  - {fileID: 2811297602134710623, guid: 0fd4a341b8f24f28bbec6b08c961d630, type: 3}
   debuggerEnabled: 1

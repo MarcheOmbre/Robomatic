@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using Project.Scripts.Interpreters;
 using Project.Scripts.Utils;
 using UnityEngine;
@@ -11,14 +12,17 @@ namespace Project.Scripts.Entities.Abstracts
         public Collider MainCollider { get; private set; }
 
 
-        public abstract EntityType EntityType
+        public abstract EntityType EntityType { get; }
+
+        [UsedImplicitly]
+        public int Type
         {
             [AuthorizedHelper.AuthorizedMethod(true)]
-            get;
+            get => (int)EntityType;
         }
-
-
-        private void OnValidate()
+        
+        
+        protected virtual void OnValidate()
         {
             if (EntityType.HasMultipleFlags())
                 throw new ArgumentException("Entity only support One Flag set.");
@@ -34,7 +38,7 @@ namespace Project.Scripts.Entities.Abstracts
             MainCollider = GetComponent<Collider>();
         }
 
-        protected void OnDisable()
+        protected virtual void OnDisable()
         {
             EntitiesManager.Instance.Unsubscribe(this);
         }

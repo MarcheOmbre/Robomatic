@@ -1,3 +1,5 @@
+#define SHOW_DEBUG_LOG
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,14 +19,15 @@ namespace Project.Scripts.Interpreters.Lua
     public class LuaInterpreterService : IInterpreterService
     {
         private readonly CoreModules coreModules;
+        private readonly TextAsset[] externalModules;
         private readonly bool debuggerEnabled;
-        private bool isCodePaused;
 
 
-        public LuaInterpreterService(CoreModules coreModules, bool debuggerEnabled)
+        public LuaInterpreterService(CoreModules coreModules, TextAsset[] modules, bool debuggerEnabled)
         {
             this.coreModules = coreModules;
             this.debuggerEnabled = debuggerEnabled;
+            externalModules = modules ?? Array.Empty<TextAsset>();
 
             // Register custom Types
             new CustomVector2().Register();
@@ -34,24 +37,61 @@ namespace Project.Scripts.Interpreters.Lua
 
         private static string FormatFunctionName(string functionName)
         {
-            return functionName.Replace("get_", "Get")
-                .Replace("set_", "Set");
+            if (functionName is not { Length: > 0 })
+                return string.Empty;
+
+            for (var i = functionName.Length - 1; i >= 1; i--)
+            {
+                if (!char.IsUpper(functionName[i]))
+                    continue;
+
+                if (functionName[i - 1] != '_')
+                    functionName = functionName.Insert(i, "_");
+            }
+
+            return functionName.ToLower();
         }
 
-        private static void RegisterGlobalMethodInfos(Script script, IEnumerable<MethodInfo> globalMethodInfos)
+        private static string FormatEnumName(string name)
         {
-            globalMethodInfos ??= Array.Empty<MethodInfo>();
+            if (name is not { Length: > 0 })
+                return string.Empty;
+
+            for (var i = name.Length - 1; i >= 1; i--)
+            {
+                if (!char.IsUpper(name[i]))
+                    continue;
+
+                if (name[i - 1] != '_')
+                    name = name.Insert(i, "_");
+            }
+
+            return name.ToUpper();
+        }
+
+        private static void RegisterGlobalMethodInfos(Script script, HashSet<MethodInfo> globalMethodInfos)
+        {
+            globalMethodInfos ??= new HashSet<MethodInfo>();
             foreach (var globalMethodInfo in globalMethodInfos)
-                script.Globals[FormatFunctionName(globalMethodInfo.Name)] = globalMethodInfo;
+            {
+                var name = FormatFunctionName(globalMethodInfo.Name);
+                script.Globals[name] = globalMethodInfo;
+                
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
+                Debug.Log($"Registering global method : {name}");
+#endif
+            }
         }
 
-        private static void RegisterTypes(Dictionary<Type, IEnumerable<MethodInfo>> localMethodInfos)
+        private static void RegisterMembers(Dictionary<Type, HashSet<MethodInfo>> localMethodInfos)
         {
-            localMethodInfos ??= new Dictionary<Type, IEnumerable<MethodInfo>>();
+            localMethodInfos ??= new Dictionary<Type, HashSet<MethodInfo>>();
 
             foreach (var (type, methodsInfos) in localMethodInfos)
             {
-                var methodsArray = methodsInfos?.ToArray() ?? Array.Empty<MethodInfo>();
+                if(methodsInfos is null)
+                    continue;
+                
                 if (type.IsEnum)
                     continue;
 
@@ -59,22 +99,26 @@ namespace Project.Scripts.Interpreters.Lua
                 var description = new StandardUserDataDescriptor(type, InteropAccessMode.HideMembers);
 
                 // Add back all authorized members
-                foreach (var methodInfo in methodsArray)
-                    description.AddMember(FormatFunctionName(methodInfo.Name), new MethodMemberDescriptor(methodInfo));
+                foreach (var methodInfo in methodsInfos)
+                {
+                    var name = FormatFunctionName(methodInfo.Name);
+                    description.AddMember(name, new MethodMemberDescriptor(methodInfo));
+
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
+                    Debug.Log($"Registering member : {type.Name}.{name}");
+#endif
+                }
 
                 // Add the type to the script
                 UserData.RegisterType(type, description);
 
-#if UNITY_EDITOR
-                foreach (var descriptionMemberName in description.MemberNames)
-                    Debug.Log($"Registering {type.Name}.{descriptionMemberName}");
-#endif
+
             }
         }
 
-        private static void RegisterGlobalEnums(Script script, IEnumerable<Type> types)
+        private static void RegisterGlobalEnums(Script script, HashSet<Type> types)
         {
-            types ??= Array.Empty<Type>();
+            types ??= new HashSet<Type>();
 
             foreach (var type in types)
             {
@@ -87,62 +131,115 @@ namespace Project.Scripts.Interpreters.Lua
                 for (var i = 0; i < values.Length; i++)
                 {
                     script.Globals[$"{type.Name}_{names[i]}"] = values[i];
-#if UNITY_EDITOR
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
                     Debug.Log($"Registering enum : {type.Name}_{names[i]}");
 #endif
                 }
             }
         }
 
+        /*
+        private static void RegisterExternalModules(Script script, TextAsset[] modules)
+        {
+            if (modules is not { Length: > 0 })
+                return;
+
+            // Load each resource
+            foreach (var module in modules)
+            {
+                var moduleScript = new Script();
+                var function = moduleScript.DoString(module.text);
+                
+                var moduleName = FormatFunctionName(module.name);
+                script.Registry[moduleName] = function;
+         
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
+                Debug.Log($"Registering module : {moduleName}");
+#endif
+            }
+        }
+        */
+
         private static string PostProcess(string code)
         {
+            if (code is null)
+                return string.Empty;
+
             // Add yield at each loop
             code = code.Replace("do", "do coroutine.yield()");
-            
+
             // Wrap the code in a function
-            code = $@" return function()
-                        {code}
-                    end";
+            code = $" return function() {code} end";
 
             return code;
         }
 
 
-        public async Task Execute(IEnumerable<MethodInfo> globalMethodInfos, Dictionary<Type, IEnumerable<MethodInfo>> methodInfos, string code, 
+        public async Task Execute(HashSet<MethodInfo> globalMethodInfos,
+            Dictionary<Type, HashSet<MethodInfo>> methodInfos, string code,
             CancellationToken cancellationToken = default)
         {
             // Create the script and load the code
             var script = new Script(coreModules) { DebuggerEnabled = debuggerEnabled };
-            isCodePaused = false;
-            
+
             // Load globals delegates
             RegisterGlobalMethodInfos(script, globalMethodInfos);
 
             // Load delegates per types
-            methodInfos ??= new Dictionary<Type, IEnumerable<MethodInfo>>();
-            RegisterTypes(methodInfos.Where(x => !x.Key.IsEnum)
+            methodInfos ??= new Dictionary<Type, HashSet<MethodInfo>>();
+            RegisterMembers(methodInfos.Where(x => !x.Key.IsEnum)
                 .ToDictionary(x => x.Key, x => x.Value));
 
             // Load enums
-            RegisterGlobalEnums(script, methodInfos.Keys.Where(x => x.IsEnum));
-            
+            RegisterGlobalEnums(script, methodInfos.Keys.Where(x => x.IsEnum).ToHashSet());
+
+            // Add Lua external functions
+            //RegisterExternalModules(script, externalModules);
+
             // Encapsulate in coroutine
             code = PostProcess(code);
-            
+
             // Execute the code
             var function = script.DoString(code);
+
+            if (function.Table != null)
+            {
+                foreach (var table in function.Table.Pairs)
+                {
+                    Debug.Log($"{table.Key} - {table.Value}");
+                }
+            }
+
             var coroutine = script.CreateCoroutine(function);
             foreach (DynValue unused in coroutine.Coroutine.AsEnumerable())
             {
-                // If paused, loop on the waiting state
-                do
-                {
-                    await Task.Yield();
-                } while (isCodePaused);
-                
-                if(cancellationToken.IsCancellationRequested)
+                await Task.Yield();
+
+                if (cancellationToken.IsCancellationRequested)
                     break;
             }
+        }
+
+        public string FormatErrorMessage(Exception exception)
+        {
+            if (exception is null)
+                return string.Empty;
+
+            if (exception is SyntaxErrorException syntaxErrorException)
+            {
+                var decoratedMessage = syntaxErrorException.DecoratedMessage;
+
+                var firstIndex = decoratedMessage.IndexOf('(');
+                var lastIndex = decoratedMessage.LastIndexOf(',');
+
+                if (firstIndex != -1 && lastIndex != -1)
+                {
+                    var line = decoratedMessage.Substring(firstIndex + 1, lastIndex - firstIndex - 1);
+                    return $"Error at line {line}: {syntaxErrorException.Message}";
+                }
+            }
+
+            return exception.Message;
         }
     }
 }
