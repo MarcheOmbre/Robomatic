@@ -15,9 +15,9 @@ namespace Project.Scripts.Utils
         
         private static T instance;
 
-        protected void Awake()
+        protected virtual void Awake()
         {
-            if (instance == null)
+            if (instance == null || instance == this)
                 return;
             
             Debug.LogWarning("Two or more instances of singleton " + typeof(T) + " found. Destroying the next one.", gameObject);
