@@ -11,13 +11,12 @@ namespace Project.Scripts.Interpreters.Lua
     public class LuaInterpreterSettings : AInterpreterSettings
     {
         [SerializeField] private CoreModules coreModules;
-        [SerializeField] private TextAsset[] externalModules;
         [SerializeField] private bool debuggerEnabled;
 
 
         protected override IInterpreterService GetInterpreterService()
         {
-            return new LuaInterpreterService(coreModules, externalModules, debuggerEnabled);
+            return new LuaInterpreterService(coreModules, debuggerEnabled);
         }
     }
 }

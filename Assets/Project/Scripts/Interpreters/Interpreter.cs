@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Project.Scripts.Interpreters.Abstracts;
@@ -33,22 +31,11 @@ namespace Project.Scripts.Interpreters
 
             // Load delegates
             var methodInfosPerType = AuthorizedHelper.ExtractTypesAndMethods();
-            var globalMethodInfos = new HashSet<MethodInfo>();
-
-            // Separate context delegates from other delegates
-            var contextType = typeof(Context);
-            if (methodInfosPerType.ContainsKey(contextType))
-            {
-                foreach (var methodInfo in methodInfosPerType[contextType])
-                    globalMethodInfos.Add(methodInfo);
-                
-                methodInfosPerType.Remove(contextType);
-            }
 
             // Run the interpreter
             try
             {
-                await interpreterSettings.Service.Execute(globalMethodInfos, methodInfosPerType, code,
+                await interpreterSettings.Service.Execute(methodInfosPerType, code,
                     cancellationTokenSource.Token);
             }
             catch (Exception error)

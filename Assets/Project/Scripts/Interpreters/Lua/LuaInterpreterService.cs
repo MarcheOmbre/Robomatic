@@ -2,12 +2,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
+using Project.Scripts.Interpreters.Lua.Libraries;
+using Project.Scripts.Interpreters.Lua.Libraries.Abstracts;
 using Project.Scripts.Services;
 using UnityEngine;
 
@@ -19,15 +20,13 @@ namespace Project.Scripts.Interpreters.Lua
     public class LuaInterpreterService : IInterpreterService
     {
         private readonly CoreModules coreModules;
-        private readonly TextAsset[] externalModules;
         private readonly bool debuggerEnabled;
 
 
-        public LuaInterpreterService(CoreModules coreModules, TextAsset[] modules, bool debuggerEnabled)
+        public LuaInterpreterService(CoreModules coreModules, bool debuggerEnabled)
         {
             this.coreModules = coreModules;
             this.debuggerEnabled = debuggerEnabled;
-            externalModules = modules ?? Array.Empty<TextAsset>();
 
             // Register custom Types
             new CustomVector2().Register();
@@ -52,114 +51,128 @@ namespace Project.Scripts.Interpreters.Lua
             return functionName.ToLower();
         }
 
-        private static string FormatEnumName(string name)
+        private static string FormatEnumName(string name) => name is not { Length: > 0 } ? string.Empty : name.ToUpper();
+
+
+        private static void RegisterDynamicMembers(Dictionary<Type, HashSet<MethodInfo>> members)
         {
-            if (name is not { Length: > 0 })
-                return string.Empty;
+            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
 
-            for (var i = name.Length - 1; i >= 1; i--)
+            foreach (var (type, methodInfos) in members)
             {
-                if (!char.IsUpper(name[i]))
-                    continue;
-
-                if (name[i - 1] != '_')
-                    name = name.Insert(i, "_");
-            }
-
-            return name.ToUpper();
-        }
-
-        private static void RegisterGlobalMethodInfos(Script script, HashSet<MethodInfo> globalMethodInfos)
-        {
-            globalMethodInfos ??= new HashSet<MethodInfo>();
-            foreach (var globalMethodInfo in globalMethodInfos)
-            {
-                var name = FormatFunctionName(globalMethodInfo.Name);
-                script.Globals[name] = globalMethodInfo;
+                if(!type.IsClass)
+                    throw new ApplicationException($"Type {type.Name} must be a class.");
                 
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
-                Debug.Log($"Registering global method : {name}");
-#endif
-            }
-        }
+                if (methodInfos is not { Count: > 0 })
+                    throw new ApplicationException($"No method found for type {type.Name}");
 
-        private static void RegisterMembers(Dictionary<Type, HashSet<MethodInfo>> localMethodInfos)
-        {
-            localMethodInfos ??= new Dictionary<Type, HashSet<MethodInfo>>();
-
-            foreach (var (type, methodsInfos) in localMethodInfos)
-            {
-                if(methodsInfos is null)
-                    continue;
-                
-                if (type.IsEnum)
-                    continue;
+                if (type.IsAbstract && type.IsSealed)
+                    throw new ApplicationException($"Type {type.Name} must be dynamic.");
 
                 // Hide all members except authorized ones
                 var description = new StandardUserDataDescriptor(type, InteropAccessMode.HideMembers);
 
                 // Add back all authorized members
-                foreach (var methodInfo in methodsInfos)
+                foreach (var methodInfo in methodInfos)
                 {
                     var name = FormatFunctionName(methodInfo.Name);
                     description.AddMember(name, new MethodMemberDescriptor(methodInfo));
 
 #if UNITY_EDITOR && SHOW_DEBUG_LOG
-                    Debug.Log($"Registering member : {type.Name}.{name}");
+                    Debug.Log($"Registering dynamic member : {type.Name}.{name}");
 #endif
                 }
 
                 // Add the type to the script
                 UserData.RegisterType(type, description);
+            }
+        }
 
+        private static void RegisterStaticMembers(Script script, Dictionary<Type, HashSet<MethodInfo>> members)
+        {
+            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
 
+            var table = new Table(script);
+            foreach (var (type, methodInfos) in members)
+            {
+                if(!type.IsClass)
+                    throw new ApplicationException($"Type {type.Name} must be a class.");
+
+                if (methodInfos is not { Count: > 0 })
+                    throw new ApplicationException($"No method found for type {type.Name}");
+
+                if (!type.IsAbstract || !type.IsSealed)
+                    throw new ApplicationException($"Type {type.Name} must be static.");
+
+                var typeName = type.Name;
+                foreach (var methodInfo in methodInfos)
+                {
+                    var methodName = FormatFunctionName(methodInfo.Name);
+                    table[methodName] = methodInfo;   
+                    
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
+                    Debug.Log($"Registering static member : {typeName}.{methodName}");
+#endif
+                }
+                
+                script.Globals[typeName] = table;
             }
         }
 
         private static void RegisterGlobalEnums(Script script, HashSet<Type> types)
         {
             types ??= new HashSet<Type>();
-
+            
             foreach (var type in types)
             {
+                if(!type.IsEnum)
+                    throw new ApplicationException($"Type {type.Name} must be an enum.");
+                
                 var values = (int[])Enum.GetValues(type);
                 var names = Enum.GetNames(type);
 
                 if (values.Length != names.Length)
-                    throw new InvalidOperationException("Enum values and names must have the same length.");
+                    throw new ApplicationException("Enum values and names must have the same length.");
 
                 for (var i = 0; i < values.Length; i++)
                 {
-                    script.Globals[$"{type.Name}_{names[i]}"] = values[i];
+                    var name = FormatEnumName($"{type.Name}_{names[i]}");
+                    script.Globals[name] = values[i];
+                    
 #if UNITY_EDITOR && SHOW_DEBUG_LOG
-                    Debug.Log($"Registering enum : {type.Name}_{names[i]}");
+                    Debug.Log($"Registering enum : {name}");
 #endif
                 }
             }
         }
 
-        /*
-        private static void RegisterExternalModules(Script script, TextAsset[] modules)
-        {
-            if (modules is not { Length: > 0 })
-                return;
 
-            // Load each resource
+
+        private static void RegisterExternalModules(Script script, HashSet<ALuaLibrary> modules)
+        {
+            if (modules is not { Count: > 0 })
+                throw new ApplicationException("No modules to load.");
+
             foreach (var module in modules)
             {
-                var moduleScript = new Script();
-                var function = moduleScript.DoString(module.text);
-                
-                var moduleName = FormatFunctionName(module.name);
-                script.Registry[moduleName] = function;
-         
+                var methods = module.ExtractMethods();
+                if (methods is not { Length: > 0 })
+                    return;
+
+                // Load each resource
+                foreach (var method in methods)
+                {
+                    if (string.IsNullOrEmpty(method))
+                        throw new ApplicationException("Module cannot be empty.");
+
+                    script.DoString(method);
+
 #if UNITY_EDITOR && SHOW_DEBUG_LOG
-                Debug.Log($"Registering module : {moduleName}");
+                    Debug.Log($"Registering module : {module.Name}");
 #endif
+                }
             }
         }
-        */
-
         private static string PostProcess(string code)
         {
             if (code is null)
@@ -175,26 +188,41 @@ namespace Project.Scripts.Interpreters.Lua
         }
 
 
-        public async Task Execute(HashSet<MethodInfo> globalMethodInfos,
-            Dictionary<Type, HashSet<MethodInfo>> methodInfos, string code,
+        public async Task Execute(Dictionary<Type, HashSet<MethodInfo>> members, string code,
             CancellationToken cancellationToken = default)
         {
             // Create the script and load the code
             var script = new Script(coreModules) { DebuggerEnabled = debuggerEnabled };
 
-            // Load globals delegates
-            RegisterGlobalMethodInfos(script, globalMethodInfos);
+            // Load memners
+            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
 
-            // Load delegates per types
-            methodInfos ??= new Dictionary<Type, HashSet<MethodInfo>>();
-            RegisterMembers(methodInfos.Where(x => !x.Key.IsEnum)
-                .ToDictionary(x => x.Key, x => x.Value));
+            var dynamicTypes = new Dictionary<Type, HashSet<MethodInfo>>();
+            var staticTypes = new Dictionary<Type, HashSet<MethodInfo>>();
+            var enumTypes = new HashSet<Type>();
 
-            // Load enums
-            RegisterGlobalEnums(script, methodInfos.Keys.Where(x => x.IsEnum).ToHashSet());
+            foreach (var member in members)
+            {
+                if (member.Key.IsClass)
+                {
+                    if (!member.Key.IsAbstract || !member.Key.IsSealed)
+                        dynamicTypes.Add(member.Key, member.Value);
+                    else
+                        staticTypes.Add(member.Key, member.Value);
+                }
+                else if (member.Key.IsEnum)
+                    enumTypes.Add(member.Key);
+            }
 
-            // Add Lua external functions
-            //RegisterExternalModules(script, externalModules);
+            RegisterDynamicMembers(dynamicTypes);
+            RegisterStaticMembers(script, staticTypes);
+            RegisterGlobalEnums(script, enumTypes);
+            
+            // Register modules
+            RegisterExternalModules(script, new HashSet<ALuaLibrary>
+            {
+                new SystemLibrary()
+            });
 
             // Encapsulate in coroutine
             code = PostProcess(code);

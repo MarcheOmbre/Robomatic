@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Project.Scripts.Interpreters.Libraries;
+using Project.Scripts.Interpreters.Lua.Libraries;
+using UnityEngine;
 
 namespace Project.Scripts.Interpreters
 {
@@ -36,11 +39,11 @@ namespace Project.Scripts.Interpreters
             var selectedTypesAndMethods = new HashSet<Tuple<Type, MethodInfo>>();
             
             // Fill the lists
-            foreach (var type in typeof(Context).Assembly.GetTypes())
+            foreach (var type in typeof(World).Assembly.GetTypes())
             {
                 allTypes.Add(type);
 
-                if (type.GetCustomAttribute<AuthorizedType>() is not null)
+                if (type.GetCustomAttribute<AuthorizedType>() is not null) 
                     selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(type, null));
 
                 foreach (var methodInfo in type.GetMethods())
@@ -90,7 +93,7 @@ namespace Project.Scripts.Interpreters
             var dictionary = new Dictionary<Type, HashSet<MethodInfo>>();
             foreach (var (type, methodInfo) in selectedTypesAndMethods)
             {
-                if (type is null || methodInfo is null)
+                if (type is null)
                     continue;
 
                 if (!dictionary.ContainsKey(type))
