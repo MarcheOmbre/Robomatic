@@ -774,10 +774,6 @@ PrefabInstance:
       propertyPath: m_BaseOffset
       value: 0.15
       objectReference: {fileID: 0}
-    - target: {fileID: 8721732134128421878, guid: fb129e87881022bbc938103034e00a33, type: 3}
-      propertyPath: m_StoppingDistance
-      value: 1
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
