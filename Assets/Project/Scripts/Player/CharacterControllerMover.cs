@@ -9,8 +9,9 @@ namespace Project.Scripts.Player
 {
     public class CharacterControllerMover : IMover
     {
-        private const float DistanceThreshold = 1f;
+        private const float DistanceThreshold = 0.1f;
 
+        private readonly AEntity entity;
         private readonly CharacterController characterController;
         private readonly ISpeedConfiguration speedConfiguration;
 
@@ -39,35 +40,30 @@ namespace Project.Scripts.Player
         private float lastRotationTime;
 
 
-        public CharacterControllerMover(CharacterController controller, ISpeedConfiguration configuration)
+        public CharacterControllerMover(AEntity entity, CharacterController controller, ISpeedConfiguration configuration)
         {
-            characterController = controller ??
-                                  throw new ArgumentNullException(nameof(controller),
-                                      "Character controller cannot be null");
-            speedConfiguration = configuration ??
-                                 throw new ArgumentNullException(nameof(configuration),
-                                     "Speed configuration cannot be null");
+            this.entity = entity ?? throw new ArgumentNullException(nameof(entity), "Entity cannot be null");
+            characterController = controller ?? throw new ArgumentNullException(nameof(controller), "Character controller cannot be null");
+            speedConfiguration = configuration ?? throw new ArgumentNullException(nameof(configuration), "Speed configuration cannot be null");
         }
 
 
         private static bool ReachedPosition(Vector2 currentPosition, Vector2 targetPosition) =>
             Vector3.SqrMagnitude(targetPosition - currentPosition) <= DistanceThreshold;
         
-        private static Vector2 Vector2FromVector3(Vector3 vector) => new(vector.x, vector.z);
-        
-        private static Vector3 Vector3FromVector2(Vector2 vector) => new(vector.x, 0, vector.y);
+
         
         
-        private void Move(Vector2 position)
+        private void Move(Vector2 targetPosition)
         {
-            var newPosition = Vector3.ProjectOnPlane(Vector3FromVector2(position) - characterController.transform.position, Vector3.up);
+            var newPosition = targetPosition - entity.Position;
             characterController.Move(newPosition);
         }
         
 
-        public bool LookAt(Vector2 direction)
+        public bool LookAt(Vector2 targetDirection)
         {
-            var rotateDirectionTarget = Vector3FromVector2(direction.normalized);
+            var rotateDirectionTarget = targetDirection.normalized.ToVector3();
             if (rotateDirectionTarget == Vector3.zero)
                 throw new VectorZeroException(nameof(LookAt));
 
@@ -82,60 +78,56 @@ namespace Project.Scripts.Player
             return lastRotation == characterController.transform.rotation;
         }
 
-        public bool LookAt(AEntity entity)
+        public bool LookAt(AEntity targetEntity)
         {
-            if (entity is null)
+            if (targetEntity is null)
                 throw new NullEntityException(nameof(LookAt));
 
-            var entityPositionVector2 = Vector2FromVector3(entity.transform.position);
-            var characterPositionVector2 = Vector2FromVector3(characterController.transform.position);
+            var entityPositionVector2 = targetEntity.Position;
+            var characterPositionVector2 = entity.Position;
             
             return LookAt(entityPositionVector2 - characterPositionVector2);
         }
 
-        public void MoveToward(Vector2 direction, float? speed)
+        public void MoveToward(Vector2 targetDirection)
         {
-            if(direction == Vector2.zero)
+            if(targetDirection == Vector2.zero)
                 return;
             
-            speed ??= speedConfiguration.TranslationSpeed;
-            speed = Mathf.Clamp(speed.Value, 0, speedConfiguration.TranslationSpeed);
-            
-            var position = Vector2FromVector3(characterController.transform.position) + 
-                           direction.normalized * speed.Value * MoveDeltaTime;
+            var position = entity.Position + targetDirection.normalized * speedConfiguration.TranslationSpeed * MoveDeltaTime;
             Move(position);
         }
         
-        public bool Reach(Vector2 position)
+        public bool Reach(Vector2 targetPosition)
         {
-            var characterPositionVector2 = Vector2FromVector3(characterController.transform.position);
+            var characterPositionVector2 = entity.Position;
 
-            if (!LookAt(position - characterPositionVector2))
+            if (!LookAt(targetPosition - characterPositionVector2))
                 return false;
             
-            var remainingDistance = Vector3.Distance(characterPositionVector2, position);
-            MoveToward(position - characterPositionVector2, remainingDistance);
+            MoveToward(targetPosition - characterPositionVector2);
             
-            return ReachedPosition(characterPositionVector2, position);
+            return ReachedPosition(characterPositionVector2, targetPosition);
         }
 
-        public bool Reach(AEntity entity)
+        public bool Reach(AEntity targetEntity)
         {
-            if (entity is null)
+            if (targetEntity is null)
                 throw new NullEntityException(nameof(Reach));
 
-            var reachedPosition = Reach(Vector2FromVector3(entity.transform.position));
-            return reachedPosition || characterController.bounds.Intersects(entity.MainCollider.bounds);
+            var reachedPosition = Reach(targetEntity.Position);
+            var isColliding = GameHelper.IsInRange(entity.Position, characterController.radius, targetEntity.Position, targetEntity.Radius);
+            return reachedPosition || isColliding;
         }
 
         public void TurnAround(Vector2 center, bool clockWise = true, float? radius = null)
         {
             // If try to turn around itself, make it turn!
-            var position = Vector2FromVector3(characterController.transform.position);
+            var position = entity.Position;
             if (center == position)
             {
                 var nextDirection = speedConfiguration.RotationSpeed * RotationDeltaTime * (clockWise ? -1 : 1);
-                var lookDirectionVector2 = Vector2FromVector3(characterController.transform.forward);
+                var lookDirectionVector2 = characterController.transform.forward.ToVector2();
                 LookAt(lookDirectionVector2.Rotate(nextDirection));
                 return;
             }
@@ -161,12 +153,12 @@ namespace Project.Scripts.Player
             Move(nextPoint);
         }
 
-        public void TurnAround(AEntity entity, bool clockWise = true)
+        public void TurnAround(AEntity targetEntity, bool clockWise = true)
         {
-            if (entity is null)
+            if (targetEntity is null)
                 return;
 
-            TurnAround(Vector2FromVector3(entity.transform.position), clockWise);
+            TurnAround(targetEntity.Position, clockWise);
         }
     }
 }
