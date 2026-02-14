@@ -27,10 +27,6 @@ namespace Project.Scripts.Interpreters.Lua
         {
             this.coreModules = coreModules;
             this.debuggerEnabled = debuggerEnabled;
-
-            // Register custom Types
-            new CustomVector2().Register();
-            new CustomVector3().Register();
         }
 
 
@@ -105,8 +101,7 @@ namespace Project.Scripts.Interpreters.Lua
         private static void RegisterStaticMembers(Script script, Dictionary<Type, HashSet<MethodInfo>> members)
         {
             members ??= new Dictionary<Type, HashSet<MethodInfo>>();
-
-            var table = new Table(script);
+            
             foreach (var (type, methodInfos) in members)
             {
                 if(!type.IsClass)
@@ -119,6 +114,8 @@ namespace Project.Scripts.Interpreters.Lua
                     throw new ApplicationException($"Type {type.Name} must be static.");
 
                 var typeName = type.Name;
+                var table = new Table(script);
+                
                 foreach (var methodInfo in methodInfos)
                 {
                     var methodName = FormatFunctionName(methodInfo.Name);
@@ -160,12 +157,12 @@ namespace Project.Scripts.Interpreters.Lua
             }
         }
         
-        private static void RegisterExternalModules(Script script, HashSet<ALuaLibrary> modules)
+        private static void RegisterLuaStaticClass(Script script, HashSet<ALuaStaticClass> luaStaticClasses)
         {
-            if (modules is not { Count: > 0 })
-                throw new ApplicationException("No modules to load.");
+            if (luaStaticClasses is not { Count: > 0 })
+                throw new ApplicationException("No Lua Static Class to load.");
 
-            foreach (var module in modules)
+            foreach (var module in luaStaticClasses)
             {
                 var methods = module.ExtractMethods();
                 if (methods is not { Length: > 0 })
@@ -175,17 +172,31 @@ namespace Project.Scripts.Interpreters.Lua
                 foreach (var method in methods)
                 {
                     if (string.IsNullOrEmpty(method))
-                        throw new ApplicationException("Module cannot be empty.");
+                        throw new ApplicationException("Lua Static Class cannot be empty.");
 
                     script.DoString(method);
 
 #if UNITY_EDITOR && SHOW_DEBUG_LOG
-                    Debug.Log($"Registering module : {module.Name}");
+                    Debug.Log($"Registering Lua Static Classes : {module.Name}");
 #endif
                 }
             }
         }
         
+        private static void RegisterLuaObjects(Script script, HashSet<ALuaObject> luaObjects)
+        {
+            if (luaObjects is not { Count: > 0 })
+                throw new ApplicationException("No Lua Object to load.");
+
+            foreach (var luaObject in luaObjects)
+            {
+                luaObject.Register(script);
+                
+#if UNITY_EDITOR && SHOW_DEBUG_LOG
+                Debug.Log($"Registering Lua Object : {luaObject.Name}");
+#endif
+            }
+        }
 
         public async Task Execute(Dictionary<Type, HashSet<MethodInfo>> members, string code,
             CancellationToken cancellationToken = default)
@@ -212,15 +223,21 @@ namespace Project.Scripts.Interpreters.Lua
                 else if (member.Key.IsEnum)
                     enumTypes.Add(member.Key);
             }
-
+            
             RegisterDynamicMembers(dynamicTypes);
             RegisterStaticMembers(script, staticTypes);
             RegisterGlobalEnums(script, enumTypes);
-            
-            // Register modules
-            RegisterExternalModules(script, new HashSet<ALuaLibrary>
+
+            // Register static libraries
+            RegisterLuaStaticClass(script, new HashSet<ALuaStaticClass>
             {
-                new SystemLibrary()
+                new SystemLuaStaticClass()
+            });
+            
+            // Register objects
+            RegisterLuaObjects(script, new HashSet<ALuaObject>
+            {
+                new Vector2Object()
             });
 
             // Encapsulate in coroutine

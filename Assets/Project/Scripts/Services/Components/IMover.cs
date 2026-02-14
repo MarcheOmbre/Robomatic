@@ -9,23 +9,35 @@ namespace Project.Scripts.Services.Components
     {
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public bool LookAt(Vector2 direction);
+        public bool LookAt(Vector2 targetDirection);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public bool LookAt(AEntity entity);
+        public bool LookAt(float x, float y) => LookAt(new Vector2(x, y));
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void MoveToward(Vector2 direction, float? speed = null);
+        public bool LookAt(AEntity targetEntity);
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public bool Reach(Vector2 position);
+        public void MoveToward(Vector2 targetDirection);
+        
+        [UsedImplicitly]
+        [AuthorizedHelper.AuthorizedMethod(true)]
+        public void MoveToward(int x, int y) => MoveToward(new Vector2(x, y));
+        
+        [UsedImplicitly]
+        [AuthorizedHelper.AuthorizedMethod(true)]
+        public bool Reach(Vector2 targetPosition);
+        
+        [UsedImplicitly]
+        [AuthorizedHelper.AuthorizedMethod(true)]
+        public bool Reach(int x, int y) => Reach(new Vector2(x, y));
 
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public bool Reach(AEntity entity);
+        public bool Reach(AEntity targetEntity);
 
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
@@ -33,6 +45,10 @@ namespace Project.Scripts.Services.Components
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void TurnAround(AEntity entity, bool clockWise = true);
+        public void TurnAround(int x, int y, bool clockWise = false, float? radius = null) => TurnAround(new Vector2(x, y), clockWise, radius);
+        
+        [UsedImplicitly]
+        [AuthorizedHelper.AuthorizedMethod(true)]
+        public void TurnAround(AEntity targetEntity, bool clockWise = true);
     }
 }

@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace Project.Scripts.Interpreters.Lua.Libraries.Abstracts
 {
-    public abstract class ALuaLibrary
+    public abstract class ALuaStaticClass
     {
         protected class Method
         {
@@ -17,7 +17,6 @@ namespace Project.Scripts.Interpreters.Lua.Libraries.Abstracts
                 Code = code;
             }
         }
-        
         
         public abstract string Name { get; }
 

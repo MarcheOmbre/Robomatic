@@ -4,13 +4,16 @@ using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters;
 using Project.Scripts.Services.Components;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Project.Scripts.Player
 {
+    [RequireComponent(typeof(NavMeshAgent))]
     public class Player : AEntity
     {
         private const float SpeedComputationThreshold = 0.1f;
         
+        public override float Radius => navMeshAgent.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
         
         public override EntityType EntityType => EntityType.Player;
 
@@ -37,16 +40,20 @@ namespace Project.Scripts.Player
         }
         
         [SerializeField] private PlayerConfiguration configuration;
-        [SerializeField] private CharacterController characterController;
         
-        private CharacterControllerMover mover;
+        private NavMeshAgent navMeshAgent;
+        private NavMeshAgentMover mover;
         
         private Vector3 lastPosition;
         private float lastComputedSpeedTime;
 
 
-        protected override void Awake() => mover = new CharacterControllerMover(characterController, configuration);
-        
+        private void Awake()
+        {
+            navMeshAgent = GetComponent<NavMeshAgent>();
+            mover = new NavMeshAgentMover(this, navMeshAgent, configuration);
+        }
+
         private void Update()
         {
             ComputeSpeed();

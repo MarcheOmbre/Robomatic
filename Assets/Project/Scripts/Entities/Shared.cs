@@ -12,6 +12,6 @@ namespace Project.Scripts.Entities
         
         Player = 1 << 5,
         
-        Balloon = 1 << 15
+        SimpleEntity = 1 << 15
     }
 }
