@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Project.Scripts.Components.Interfaces;
 using Project.Scripts.Entities.Abstracts;
@@ -15,10 +16,6 @@ namespace Project.Scripts.Components
         private const int FindPointDistanceOffset = 10;
         private const int CircleMaxDistanceAway = 1;
         
-        private readonly NavMeshAgent navMeshAgent;
-        private readonly Collider collider;
-        private readonly float stoppingDistance;
-        
         
         private float RotationDeltaTime
         {
@@ -30,9 +27,15 @@ namespace Project.Scripts.Components
             }
         }
         
+        
+        private readonly NavMeshAgent navMeshAgent;
+        private readonly Collider collider;
+        private readonly float stoppingDistance;
+        
         private readonly AEntity entity;
         private float lastRotationTime;
         private Task currentMoveTask;
+        private CancellationTokenSource cancellationTokenSource;
 
 
         public NavMeshAgentMover(AEntity entity, NavMeshAgent navMeshAgent, ISpeedConfiguration configuration)
@@ -49,6 +52,11 @@ namespace Project.Scripts.Components
         // ReSharper disable once AsyncVoidMethod
         private async Task MoveTo(Vector2 targetPosition, float stopDistance)
         {
+            if (cancellationTokenSource is not null)
+                throw new InvalidOperationException("Move is already running.");
+            
+            cancellationTokenSource = new CancellationTokenSource();
+            
             // Compute the distance
             var distance = Vector2.Distance(navMeshAgent.destination.XZToXYVector2(), targetPosition);
             if (distance > 0)
@@ -62,10 +70,18 @@ namespace Project.Scripts.Components
             }
 
             // Move
-            for(var i = 0; i < MoveFramesDurationCount; i++)
-                await Awaitable.NextFrameAsync();
+            for (var i = 0; i < MoveFramesDurationCount; i++)
+            {
+                await Awaitable.NextFrameAsync(cancellationTokenSource.Token);
+                
+                if(cancellationTokenSource.IsCancellationRequested)
+                    break;
+            }
             
             Stop();
+            
+            cancellationTokenSource.Dispose();
+            cancellationTokenSource = null;
         }
         
         private void Stop() => navMeshAgent.destination = entity.transform.position;
@@ -75,6 +91,7 @@ namespace Project.Scripts.Components
             if(currentMoveTask is { IsCompleted: false })
                 return;
             
+            currentMoveTask?.Dispose();
             currentMoveTask = MoveTo(targetPosition, stopDistance);
         }
         
