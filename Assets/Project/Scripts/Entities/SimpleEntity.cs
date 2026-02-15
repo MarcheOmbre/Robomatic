@@ -14,6 +14,7 @@ namespace Project.Scripts.Entities
         
         private NavMeshObstacle navMeshObstacle;
         
+        
         private void Awake() => navMeshObstacle = GetComponent<NavMeshObstacle>();
     }
 }

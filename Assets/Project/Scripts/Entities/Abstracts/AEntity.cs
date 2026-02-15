@@ -16,7 +16,7 @@ namespace Project.Scripts.Entities.Abstracts
         public Vector2 Position
         {
             [AuthorizedHelper.AuthorizedMethod(true)]
-            get => transform.position.ToVector2();
+            get => transform.position.XZToXYVector2();
         }
 
 
@@ -25,6 +25,7 @@ namespace Project.Scripts.Entities.Abstracts
             [AuthorizedHelper.AuthorizedMethod(true)]
             get;
         }
+        
         
         protected virtual void OnValidate()
         {
@@ -40,15 +41,6 @@ namespace Project.Scripts.Entities.Abstracts
         protected virtual void OnDisable()
         {
             EntitiesManager.Instance.Unsubscribe(this);
-        }
-
-        [AuthorizedHelper.AuthorizedMethod(true)]
-        public bool IsInRange(AEntity entity)
-        {
-            if(entity is null)
-                return false;
-            
-            return Vector2.Distance(transform.position, entity.transform.position) <= Radius + entity.Radius;
         }
     }
 }

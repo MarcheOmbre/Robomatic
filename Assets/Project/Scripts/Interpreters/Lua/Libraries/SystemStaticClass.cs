@@ -2,7 +2,7 @@ using Project.Scripts.Interpreters.Lua.Libraries.Abstracts;
 
 namespace Project.Scripts.Interpreters.Lua.Libraries
 {
-    public class SystemLuaStaticClass : ALuaStaticClass
+    public class SystemStaticClass : ALuaStaticClass
     {
         public override string Name => "System";
 

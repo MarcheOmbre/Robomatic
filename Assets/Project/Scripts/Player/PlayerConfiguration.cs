@@ -1,9 +1,9 @@
-using Project.Scripts.Services.Components;
+using Project.Scripts.Components.Interfaces;
 using UnityEngine;
 
 namespace Project.Scripts.Player
 {
-    [CreateAssetMenu(fileName = "PlayerConfiguration", menuName = "Player/Configuration")]
+    [CreateAssetMenu(fileName = "PlayerConfiguration", menuName = "Robot/Configuration")]
     public class PlayerConfiguration : ScriptableObject, ISpeedConfiguration
     {
         [SerializeField] [Min(0)] private float translationSpeed = 10f;

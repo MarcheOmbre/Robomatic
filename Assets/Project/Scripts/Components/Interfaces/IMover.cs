@@ -3,7 +3,7 @@ using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters;
 using UnityEngine;
 
-namespace Project.Scripts.Services.Components
+namespace Project.Scripts.Components.Interfaces
 {
     public interface IMover
     {
@@ -49,6 +49,6 @@ namespace Project.Scripts.Services.Components
         
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod(true)]
-        public void TurnAround(AEntity targetEntity, bool clockWise = true);
+        public void TurnAround(AEntity targetEntity, bool clockWise = true, float? radius = null);
     }
 }

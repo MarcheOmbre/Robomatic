@@ -2,15 +2,16 @@ using System.Linq;
 using JetBrains.Annotations;
 using Project.Scripts.Entities;
 using Project.Scripts.Entities.Abstracts;
+using Project.Scripts.Player;
 
 namespace Project.Scripts.Interpreters.Libraries
 {
     public static class World
     {
         [UsedImplicitly]
-        public static Player.Player Me
+        public static Robot Me
         {
-            [AuthorizedHelper.AuthorizedMethod] get => EntitiesManager.Instance.Entities.OfType<Player.Player>().FirstOrDefault();
+            [AuthorizedHelper.AuthorizedMethod] get => EntitiesManager.Instance.Entities.OfType<Robot>().FirstOrDefault();
         }
 
         [UsedImplicitly]

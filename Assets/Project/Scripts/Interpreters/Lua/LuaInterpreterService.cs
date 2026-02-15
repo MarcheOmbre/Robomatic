@@ -1,4 +1,4 @@
-#define SHOW_DEBUG_LOG
+#define DEBUG_REGISTRATION
 
 using System;
 using System.Collections.Generic;
@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
+using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Interpreters.Lua.Libraries;
 using Project.Scripts.Interpreters.Lua.Libraries.Abstracts;
-using Project.Scripts.Services;
 using UnityEngine;
 
 namespace Project.Scripts.Interpreters.Lua
@@ -88,7 +88,7 @@ namespace Project.Scripts.Interpreters.Lua
                     var name = FormatFunctionName(methodInfo.Name);
                     description.AddMember(name, new MethodMemberDescriptor(methodInfo));
 
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
+#if UNITY_EDITOR && DEBUG_REGISTRATION
                     Debug.Log($"Registering dynamic member : {type.Name}.{name}");
 #endif
                 }
@@ -121,7 +121,7 @@ namespace Project.Scripts.Interpreters.Lua
                     var methodName = FormatFunctionName(methodInfo.Name);
                     table[methodName] = methodInfo;   
                     
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
+#if UNITY_EDITOR && DEBUG_REGISTRATION
                     Debug.Log($"Registering static member : {typeName}.{methodName}");
 #endif
                 }
@@ -150,7 +150,7 @@ namespace Project.Scripts.Interpreters.Lua
                     var name = FormatEnumName($"{type.Name}_{names[i]}");
                     script.Globals[name] = values[i];
                     
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
+#if UNITY_EDITOR && DEBUG_REGISTRATION
                     Debug.Log($"Registering enum : {name}");
 #endif
                 }
@@ -176,7 +176,7 @@ namespace Project.Scripts.Interpreters.Lua
 
                     script.DoString(method);
 
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
+#if UNITY_EDITOR && DEBUG_REGISTRATION
                     Debug.Log($"Registering Lua Static Classes : {module.Name}");
 #endif
                 }
@@ -192,7 +192,7 @@ namespace Project.Scripts.Interpreters.Lua
             {
                 luaObject.Register(script);
                 
-#if UNITY_EDITOR && SHOW_DEBUG_LOG
+#if UNITY_EDITOR && DEBUG_REGISTRATION
                 Debug.Log($"Registering Lua Object : {luaObject.Name}");
 #endif
             }
@@ -231,7 +231,7 @@ namespace Project.Scripts.Interpreters.Lua
             // Register static libraries
             RegisterLuaStaticClass(script, new HashSet<ALuaStaticClass>
             {
-                new SystemLuaStaticClass()
+                new SystemStaticClass()
             });
             
             // Register objects

@@ -4,7 +4,9 @@ namespace Project.Scripts.Utils
 {
     public static class VectorsExtensions
     {
-        public static Vector2 ToVector2(this Vector3 vector) => new(vector.x, vector.z);
+        public static Vector2 XZToXYVector2(this Vector3 vector) => new(vector.x, vector.z);
+        
+        public static Vector3 XYToXZVector3(this Vector2 vector) => new(vector.x, 0, vector.y);
         
         // Thanks to https://discussions.unity.com/t/whats-the-most-efficient-way-to-rotate-a-vector2-of-a-certain-angle-around-the-axis-orthogonal-to-the-plane-they-describe/98886
         public static Vector2 Rotate(this Vector2 vector, float delta) {
@@ -19,7 +21,5 @@ namespace Project.Scripts.Utils
             
             return vector;
         }
-        
-        public static Vector3 ToVector3(this Vector2 vector) => new(vector.x, 0, vector.y);
     }
 }

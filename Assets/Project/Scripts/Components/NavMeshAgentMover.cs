@@ -1,20 +1,24 @@
 using System;
+using System.Threading.Tasks;
+using Project.Scripts.Components.Interfaces;
 using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters.Exceptions;
-using Project.Scripts.Services.Components;
 using Project.Scripts.Utils;
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace Project.Scripts.Player
+namespace Project.Scripts.Components
 {
     public class NavMeshAgentMover : IMover
     {
-        private const int MovementFrameOffset = 5;
+        private const int MoveFramesDurationCount = 5;
+        private const int FindPointDistanceOffset = 10;
+        private const int CircleMaxDistanceAway = 1;
         
         private readonly NavMeshAgent navMeshAgent;
         private readonly Collider collider;
         private readonly float stoppingDistance;
+        
         
         private float RotationDeltaTime
         {
@@ -28,7 +32,7 @@ namespace Project.Scripts.Player
         
         private readonly AEntity entity;
         private float lastRotationTime;
-        private bool isMovingInProcess;
+        private Task currentMoveTask;
 
 
         public NavMeshAgentMover(AEntity entity, NavMeshAgent navMeshAgent, ISpeedConfiguration configuration)
@@ -39,53 +43,58 @@ namespace Project.Scripts.Player
             
             this.navMeshAgent.speed = configuration.TranslationSpeed;
             this.navMeshAgent.angularSpeed = configuration.RotationSpeed;
-            this.navMeshAgent.destination = entity.Position.ToVector3();
+            this.navMeshAgent.destination = entity.Position.XYToXZVector3();
         }
         
         // ReSharper disable once AsyncVoidMethod
-        private async void MoveTo(Vector2 targetPosition, float stopDistance)
+        private async Task MoveTo(Vector2 targetPosition, float stopDistance)
         {
-            // Avoid the moving process to be called too much time
-            if (isMovingInProcess)
-                return;
-            isMovingInProcess = true;
-            
             // Compute the distance
-            var distance = Vector2.Distance(navMeshAgent.destination.ToVector2(), targetPosition);
+            var distance = Vector2.Distance(navMeshAgent.destination.XZToXYVector2(), targetPosition);
             if (distance > 0)
             {
                 navMeshAgent.stoppingDistance = stopDistance;
-                if(!navMeshAgent.SetDestination(targetPosition.ToVector3()))
+                
+                // Get the nearest point on the navmesh
+                NavMesh.SamplePosition(targetPosition.XYToXZVector3(), out var nearestPoint, distance + FindPointDistanceOffset, NavMesh.AllAreas);
+                if(!navMeshAgent.SetDestination(nearestPoint.position))
                     throw new UnaccessiblePathException(nameof(MoveTo));
             }
 
             // Move
-            for(var i = 0; i < MovementFrameOffset; i++)
+            for(var i = 0; i < MoveFramesDurationCount; i++)
                 await Awaitable.NextFrameAsync();
-            Stop();
             
-            // Close the process
-            isMovingInProcess = false;
+            Stop();
         }
         
         private void Stop() => navMeshAgent.destination = entity.transform.position;
 
+        private void RequestMove(Vector2 targetPosition, float stopDistance)
+        {
+            if(currentMoveTask is { IsCompleted: false })
+                return;
+            
+            currentMoveTask = MoveTo(targetPosition, stopDistance);
+        }
+        
+        
 
         public bool LookAt(Vector2 targetDirection)
         {
-            navMeshAgent.updateRotation = false;
-            var rotateDirectionTarget = targetDirection.normalized.ToVector3();
+            var rotateDirectionTarget = targetDirection.normalized.XYToXZVector3();
             if (rotateDirectionTarget == Vector3.zero)
                 throw new VectorZeroException(nameof(LookAt));
 
             var currentRotation = navMeshAgent.transform.rotation;
             var targetRotation = Quaternion.LookRotation(rotateDirectionTarget, Vector3.up);
-
             var lastRotation = navMeshAgent.transform.rotation;
             
+            navMeshAgent.updateRotation = false;
             navMeshAgent.transform.rotation = Quaternion.RotateTowards(currentRotation, targetRotation, navMeshAgent.angularSpeed * RotationDeltaTime);
-            
+            lastRotationTime = Time.time;
             navMeshAgent.updateRotation = true;
+            
             return lastRotation == navMeshAgent.transform.rotation;
         }
 
@@ -105,19 +114,19 @@ namespace Project.Scripts.Player
             if(targetDirection == Vector2.zero)
                 return;
 
-            var direction = targetDirection.normalized.ToVector3();
-            var position = (entity.transform.position + direction * navMeshAgent.speed).ToVector2();
+            var direction = targetDirection.normalized.XYToXZVector3();
+            var position = (entity.transform.position + direction * navMeshAgent.speed).XZToXYVector2();
             
-            MoveTo(position, stoppingDistance);
+            RequestMove(position, stoppingDistance);
         }
         
         public bool Reach(Vector2 targetPosition)
         {
-            MoveTo(targetPosition, stoppingDistance);
+            RequestMove(targetPosition, stoppingDistance);
             
             if(navMeshAgent.pathPending)
                 return false;
-            
+
             if(navMeshAgent.remainingDistance > navMeshAgent.stoppingDistance)
                 return false;
             
@@ -131,7 +140,7 @@ namespace Project.Scripts.Player
                 throw new NullEntityException(nameof(Reach));
             
             var limitDistance = entity.Radius + targetEntity.Radius;
-            MoveTo(targetEntity.Position, limitDistance);
+            RequestMove(targetEntity.Position, limitDistance);
             
             if(navMeshAgent.pathPending)
                 return false;
@@ -150,7 +159,7 @@ namespace Project.Scripts.Player
             if (center == position || radius < entity.Radius)
             {
                 var nextDirection = navMeshAgent.angularSpeed * RotationDeltaTime * (clockWise ? -1 : 1);
-                var lookDirectionVector2 = entity.transform.forward.ToVector2();
+                var lookDirectionVector2 = entity.transform.forward.XZToXYVector2();
                 LookAt(lookDirectionVector2.Rotate(nextDirection));
                 return;
             }
@@ -158,21 +167,23 @@ namespace Project.Scripts.Player
             // Compute circumference
             var centerToCurrentPosition = position - center;
             radius ??= centerToCurrentPosition.magnitude;
-     
-            // Move to the next point on the circle
-            var angleToRotate = MathsHelper.GetCircleAngleFromCircumferenceDistance(navMeshAgent.speed * Time.deltaTime, radius.Value);
+            var nearestPoint = MathsHelper.GetCircleNearestPoint(center, radius.Value, position);
             
-            // Rotate around the center
-            var nextPoint = center + centerToCurrentPosition.Rotate(angleToRotate * (clockWise ? 1 : -1));
-            MoveTo(nextPoint, stoppingDistance);
+            var normalizedDistanceFromNearestPoint = Mathf.Clamp01(Vector2.Distance(nearestPoint, position) / CircleMaxDistanceAway);
+
+            // Move to the next point on the circle
+            var angleToRotate = MathsHelper.GetCircleAngleFromCircumferenceDistance(navMeshAgent.speed, radius.Value);
+            var rotationPoint = center + centerToCurrentPosition.Rotate(angleToRotate * (clockWise ? 1 : -1));
+
+            RequestMove(Vector2.Lerp(nearestPoint, rotationPoint, 1 - normalizedDistanceFromNearestPoint), stoppingDistance);
         }
 
-        public void TurnAround(AEntity targetEntity, bool clockWise = true)
+        public void TurnAround(AEntity targetEntity, bool clockWise = true, float? radius = null)
         {
             if (targetEntity is null)
                 return;
 
-            TurnAround(targetEntity.Position, clockWise);
+            TurnAround(targetEntity.Position, clockWise, radius);
         }
     }
 }

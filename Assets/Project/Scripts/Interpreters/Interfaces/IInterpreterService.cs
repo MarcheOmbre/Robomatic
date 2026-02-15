@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Project.Scripts.Services
+namespace Project.Scripts.Interpreters.Interfaces
 {
     public interface IInterpreterService
     {

@@ -1,15 +1,17 @@
 using System;
+using Project.Scripts.Components.Interfaces;
 using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters.Exceptions;
-using Project.Scripts.Services.Components;
 using Project.Scripts.Utils;
 using UnityEngine;
 
-namespace Project.Scripts.Player
+namespace Project.Scripts.Components
 {
     public class CharacterControllerMover : IMover
     {
         private const float DistanceThreshold = 0.1f;
+        private const int CircleMaxDistanceAway = 1;
+        
 
         private readonly AEntity entity;
         private readonly CharacterController characterController;
@@ -63,7 +65,7 @@ namespace Project.Scripts.Player
 
         public bool LookAt(Vector2 targetDirection)
         {
-            var rotateDirectionTarget = targetDirection.normalized.ToVector3();
+            var rotateDirectionTarget = targetDirection.normalized.XYToXZVector3();
             if (rotateDirectionTarget == Vector3.zero)
                 throw new VectorZeroException(nameof(LookAt));
 
@@ -124,10 +126,10 @@ namespace Project.Scripts.Player
         {
             // If try to turn around itself, make it turn!
             var position = entity.Position;
-            if (center == position)
+            if (center == position || radius < entity.Radius)
             {
                 var nextDirection = speedConfiguration.RotationSpeed * RotationDeltaTime * (clockWise ? -1 : 1);
-                var lookDirectionVector2 = characterController.transform.forward.ToVector2();
+                var lookDirectionVector2 = entity.transform.forward.XZToXYVector2();
                 LookAt(lookDirectionVector2.Rotate(nextDirection));
                 return;
             }
@@ -136,29 +138,22 @@ namespace Project.Scripts.Player
             var centerToCurrentPosition = position - center;
             radius ??= centerToCurrentPosition.magnitude;
             var nearestPoint = MathsHelper.GetCircleNearestPoint(center, radius.Value, position);
-
-            // Move to the nearest point on the circle ;
-            if (!ReachedPosition(position, nearestPoint))
-            {
-                Reach(nearestPoint);
-                return;
-            }
+            
+            var normalizedDistanceFromNearestPoint = Mathf.Clamp01(Vector2.Distance(nearestPoint, position) / CircleMaxDistanceAway);
 
             // Move to the next point on the circle
-            var angleToRotate = MathsHelper.GetCircleAngleFromCircumferenceDistance(
-                    speedConfiguration.TranslationSpeed * MoveDeltaTime, radius.Value);
-            
-            // Rotate around the center
-            var nextPoint = center + centerToCurrentPosition.Rotate(angleToRotate * (clockWise ? 1 : -1));
-            Move(nextPoint);
+            var angleToRotate = MathsHelper.GetCircleAngleFromCircumferenceDistance(speedConfiguration.TranslationSpeed, radius.Value);
+            var rotationPoint = center + centerToCurrentPosition.Rotate(angleToRotate * (clockWise ? 1 : -1));
+
+            Move(Vector2.Lerp(nearestPoint, rotationPoint, 1 - normalizedDistanceFromNearestPoint));
         }
 
-        public void TurnAround(AEntity targetEntity, bool clockWise = true)
+        public void TurnAround(AEntity targetEntity, bool clockWise = true, float? radius = null)
         {
             if (targetEntity is null)
                 return;
 
-            TurnAround(targetEntity.Position, clockWise);
+            TurnAround(targetEntity.Position, clockWise, radius);
         }
     }
 }

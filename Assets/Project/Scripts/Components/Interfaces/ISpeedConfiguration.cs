@@ -1,4 +1,4 @@
-namespace Project.Scripts.Services.Components
+namespace Project.Scripts.Components.Interfaces
 {
     public interface ISpeedConfiguration
     {

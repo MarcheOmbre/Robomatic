@@ -1,4 +1,4 @@
-using Project.Scripts.Services;
+using Project.Scripts.Interpreters.Interfaces;
 using UnityEngine;
 
 namespace Project.Scripts.Interpreters.Abstracts

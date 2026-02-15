@@ -1,27 +1,23 @@
 using JetBrains.Annotations;
+using Project.Scripts.Components;
+using Project.Scripts.Components.Interfaces;
 using Project.Scripts.Entities;
 using Project.Scripts.Entities.Abstracts;
 using Project.Scripts.Interpreters;
-using Project.Scripts.Services.Components;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace Project.Scripts.Player
 {
     [RequireComponent(typeof(NavMeshAgent))]
-    public class Player : AEntity
+    public class Robot : AEntity
     {
         private const float SpeedComputationThreshold = 0.1f;
         
         public override float Radius => navMeshAgent.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
         
         public override EntityType EntityType => EntityType.Player;
-
-        public IMover Mover
-        {
-            [AuthorizedHelper.AuthorizedMethod] 
-            get => mover;
-        }
+        
 
         public Vector3 Direction
         {
@@ -39,11 +35,18 @@ namespace Project.Scripts.Player
             private set;
         }
         
+        public IMover Mover
+        {
+            [AuthorizedHelper.AuthorizedMethod] 
+            get => mover;
+        }
+        
+        
         [SerializeField] private PlayerConfiguration configuration;
+        
         
         private NavMeshAgent navMeshAgent;
         private NavMeshAgentMover mover;
-        
         private Vector3 lastPosition;
         private float lastComputedSpeedTime;
 
