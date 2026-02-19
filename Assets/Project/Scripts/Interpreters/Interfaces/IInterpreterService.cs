@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Project.Scripts.Interpreters.Interfaces
 {
     public interface IInterpreterService
     {
-        public Task Execute(Dictionary<Type, HashSet<MethodInfo>> members, string code,
-            CancellationToken cancellationToken = default);
+        public event Action<IProgrammable> OnScriptAdded;
+        public event Action<IProgrammable> OnScriptRemoved;
         
-        public string FormatErrorMessage(Exception exception);
+        public HashSet<IProgrammable> GetInstances();
+        
+        public bool Inject(RuntimeEnvironment runtimeEnvironment);
+        
+        public bool Remove(IProgrammable reference);
     }
 }

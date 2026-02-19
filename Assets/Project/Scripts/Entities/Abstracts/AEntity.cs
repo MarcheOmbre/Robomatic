@@ -25,6 +25,15 @@ namespace Project.Scripts.Entities.Abstracts
             [AuthorizedHelper.AuthorizedMethod(true)]
             get;
         }
+
+        
+        private EntitiesManager entitiesManager;
+
+
+        internal void Initialize(EntitiesManager manager)
+        {
+            entitiesManager = manager;
+        }
         
         
         protected virtual void OnValidate()
@@ -33,14 +42,13 @@ namespace Project.Scripts.Entities.Abstracts
                 throw new ArgumentException("Entity only support One Flag set.");
         }
 
-        protected virtual void OnEnable()
-        {
-            EntitiesManager.Instance.Subscribe(this);
-        }
 
-        protected virtual void OnDisable()
+        public void Despawn()
         {
-            EntitiesManager.Instance.Unsubscribe(this);
+            if(entitiesManager is null)
+                throw new InvalidOperationException("Entity not initialized by any EntitiesManager.");
+            
+            entitiesManager.Despawn(this);
         }
     }
 }

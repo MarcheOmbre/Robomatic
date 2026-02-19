@@ -1,30 +1,39 @@
 using System;
 using System.Collections.Generic;
 using Project.Scripts.Entities.Abstracts;
-using Project.Scripts.Utils;
+using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Project.Scripts.Entities
 {
-    public class EntitiesManager : MonoBehaviourSingleton<EntitiesManager>
+    public class EntitiesManager
     {
         public IReadOnlyList<AEntity> Entities => entities;
         
         private readonly List<AEntity> entities = new();
         
         
-        public void Subscribe(AEntity entity)
+        public AEntity Spawn(AEntity entity)
         {
-            if (entities.Contains(entity))
-                throw new ApplicationException("Entity already subscribed.");
+            if (entity is null)
+                throw new ArgumentNullException(nameof(entity));
             
-            entities.Add(entity);
+            var spawnedEntity = Object.Instantiate(entity, Vector3.zero, Quaternion.identity);
+            spawnedEntity.Initialize(this);
+            
+            entities.Add(spawnedEntity);
+            return spawnedEntity;
         }
-        
-        public void Unsubscribe(AEntity entity)
+
+        public void Despawn(AEntity entity)
         {
-            if(!entities.Contains(entity))
-                throw new ApplicationException("Entity not subscribed.");
+            if (entity is null)
+                throw new ArgumentNullException(nameof(entity));
             
+            if(!entities.Contains(entity))
+                throw new ApplicationException("Entity not spawned using this manager, cannot despawn.");
+            
+            Object.Destroy(entity.gameObject);
             entities.Remove(entity);
         }
     }

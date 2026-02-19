@@ -9,9 +9,8 @@ namespace Project.Scripts.Entities
     public enum EntityType
     {
         None = 0,
+        Unknown = 1 << 0,
         
-        Player = 1 << 5,
-        
-        SimpleEntity = 1 << 15
+        Robot = 1 << 5
     }
 }

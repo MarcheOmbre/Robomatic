@@ -1,27 +1,50 @@
+* {
+    --background_color: rgba(0, 0, 0, 0.9);
+    --text_color: white;
+}
+
+
 #background {
     width: 50%;
     height: 100%;
-    
     margin-left: auto;
-    background-color: black;
+    background-color: var(--background_color);
     border-left-width: var(--main_border_size);
     border-color: var(--main_border_color);
-    
     padding: 20px;
 }
 
-#code_editor Label{
+#text_field_name Label, #text_field_code Label{
     display: none;
 }
 
-#code_editor {
+#scroll_view_code {
     flex-grow: 1;
-    background-color: blue;
-    border-radius: 20px;
 }
 
-TextEdit.input {
-    background-color: black;
+ScrollView VisualElement{
+    padding: 0;
+}
+
+ScrollView #unity-content-container{
+    min-height: 100%;
+}
+
+#text_field_code{
+    width: 100%;
+    min-height: 100%;
+}
+
+#console_container {
+    height: 20%;
+    border-color: gray;
+    border-width: var(--main_border_size);
+}
+
+#label_console {
+    width: 100%;
+    height: auto;
+    color: var(--text_color);
 }
 
 #footer {
