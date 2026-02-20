@@ -31,7 +31,7 @@ namespace Project.Scripts.Interpreters.Lua.Libraries.Abstracts
             
             return methods.Where(x => x != null).Select(x =>
             {
-                var generatedCode = Name + "= {}\n";
+                var generatedCode = Name + " = {}\n";
                 generatedCode += x.Code.Replace("function", $"function {Name}.{x.Name}");
                 return generatedCode;
             }).ToArray();

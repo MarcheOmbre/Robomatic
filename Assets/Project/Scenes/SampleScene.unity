@@ -614,9 +614,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game::Project.Scripts.Game.GameManager
   developmentEnvironmentDocument: {fileID: 381742975}
-  references: {fileID: 1847118603}
   programmableTriggerActionReference: {fileID: -3546080307847138492, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   programmableScreenPositionActionReference: {fileID: -8038271295136183573, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  gameCamera: {fileID: 330585545}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -1166,7 +1166,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8475f32ab48c4c078d02dcc524eff591, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game::Project.Scripts.Game.References
-  gameCamera: {fileID: 330585545}
+  gameManager: {fileID: 396290706}
 --- !u!1 &1914987775
 GameObject:
   m_ObjectHideFlags: 0

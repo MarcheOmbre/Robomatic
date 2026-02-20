@@ -114,11 +114,11 @@ namespace Project.Scripts.Interpreters.Lua
             return result;
         }
 
-        public static Dictionary<string, string> ExtractGlobalEnums(HashSet<Type> types)
+        public static Dictionary<string, int> ExtractGlobalEnums(HashSet<Type> types)
         {
             types ??= new HashSet<Type>();
 
-            var result = new Dictionary<string, string>();
+            var result = new Dictionary<string, int>();
 
             foreach (var type in types)
             {
@@ -137,7 +137,7 @@ namespace Project.Scripts.Interpreters.Lua
                 {
                     var name = FormatEnumName($"{typeName}_{names[i]}");
 
-                    if (!result.TryAdd(name, values[i].ToString()))
+                    if (!result.TryAdd(name, values[i]))
                         throw new ApplicationException($"Enum {name} already registered.");
 
 #if UNITY_EDITOR && DEBUG

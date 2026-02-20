@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Project.Scripts.Interpreters;
 using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Interpreters.Log;
@@ -50,40 +46,54 @@ namespace Project.Scripts.Code
             interpreterService.OnScriptRemoved += OnScriptRemoved;
             logger.OnLogAdded += OnLogAdded;
             
-            Close();
+            this.document.rootVisualElement.style.display = DisplayStyle.None;
         }
 
         ~CodeEditor()
         {
             logger.OnLogAdded -= OnLogAdded;
             
-            Close();
+            if(CurrentProgrammable != null)
+                Close();
         }
         
         public void Open(IProgrammable programmable)
         {
+            if (CurrentProgrammable != null)
+                throw new ApplicationException("CodeEditor is already open");
+            
+            // Initialize the variables
             CurrentProgrammable = programmable ?? throw new ArgumentNullException(nameof(programmable));
             programmableName = CurrentProgrammable.Name;
-       
-            consoleLabel.text = "";
-            document.rootVisualElement.style.display = DisplayStyle.Flex;
             
+            // Initialize fields
+            nameTextField.value = CurrentProgrammable.Name;
+            codeTextField.value = programmable.Code;
+            consoleLabel.text = "";
+            foreach (var logData in logger.GetLogsForReference(CurrentProgrammable))
+                OnLogAdded(logData);
+            offButton.SetEnabled(interpreterService.GetInstances().Contains(CurrentProgrammable));
+
+            // Events
             injectButton.clickable.clicked += Inject;
             offButton.clickable.clicked += Stop;
             
-            nameTextField.value = CurrentProgrammable.Name;
-            offButton.SetEnabled(interpreterService.GetInstances().Contains(CurrentProgrammable));
-
-            foreach (var logData in logger.GetLogsForReference(CurrentProgrammable))
-                OnLogAdded(logData);
+            // Display the window
+            document.rootVisualElement.style.display = DisplayStyle.Flex;
         }
 
         public void Close()
         {
+            if (CurrentProgrammable == null)
+                throw new ApplicationException("CodeEditor is not open");
+            
+            // Uninitialize the variables
             CurrentProgrammable = null;
-
+            
+            // Hide the window
             document.rootVisualElement.style.display = DisplayStyle.None;
             
+            // Events
             injectButton.clickable.clicked -= Inject;
             offButton.clickable.clicked -= Stop;
         }
@@ -91,7 +101,11 @@ namespace Project.Scripts.Code
         
         private void Inject()
         {
-            CurrentProgrammable.Name = !string.IsNullOrEmpty(nameTextField.value) ? nameTextField.value : programmableName;
+            // Check name
+            if (string.IsNullOrEmpty(nameTextField.value))
+                nameTextField.value = programmableName;
+            
+            CurrentProgrammable.Name = nameTextField.value;
             CurrentProgrammable.Code = codeTextField.value;
             interpreterService.Inject(new RuntimeEnvironment
             {
@@ -121,9 +135,11 @@ namespace Project.Scripts.Code
             {
                 if(logData.Reference != CurrentProgrammable)
                     return;
-            
-                var lineText = logData.Line.HasValue ? $"Line {logData.Line.Value}" : "Unknown line";
-                var message = $"{logData.LogType}: {logData.Message} ({lineText})";
+
+                var message = logData.LogType.ToString();
+                if (logData.Line.HasValue)
+                    message += $" (l.{logData.Line.Value})";
+                message += " : " + logData.Message;
             
                 if(logData.LogType == LogType.Error)
                     message = $"<color=red>{message}</color>";

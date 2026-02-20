@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Project.Scripts.Entities.Abstracts;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -8,9 +9,18 @@ namespace Project.Scripts.Entities
 {
     public class EntitiesManager
     {
-        public IReadOnlyList<AEntity> Entities => entities;
+        public IReadOnlyCollection<AEntity> Entities => entities;
         
-        private readonly List<AEntity> entities = new();
+        private readonly HashSet<AEntity> entities = new();
+        
+
+        /// <summary>
+        /// Allows to inject the entities from the scene to the Entity Manager.
+        /// </summary>
+        public void ScanSceneEntities()
+        {
+            entities.UnionWith(Object.FindObjectsByType<AEntity>(FindObjectsInactive.Exclude, FindObjectsSortMode.None));
+        }
         
         
         public AEntity Spawn(AEntity entity)

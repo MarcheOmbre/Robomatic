@@ -51,16 +51,24 @@ namespace Project.Scripts.Game.Inputs
             // Ray on camera
             var ray = camera.ScreenPointToRay(position);
             Physics.Raycast(ray, out var hit);
-
-            // Check for a programmable object
+            
+            var isEditorOpen = codeEditor.CurrentProgrammable != null;
+            
+            // Close the editor and return if not IProgrammable selected
             if (!hit.transform || !hit.transform.TryGetComponent<IProgrammable>(out var programmable))
             {
-                codeEditor.Close();
+                if(isEditorOpen)
+                    codeEditor.Close();
+                
                 return;
             }
 
+            // If the editor current IProgrammable is the same as the selected one, we skip
             if (programmable == codeEditor.CurrentProgrammable)
                 return;
+            
+            if(isEditorOpen)
+                codeEditor.Close();
             
             codeEditor.Open(programmable);
         }

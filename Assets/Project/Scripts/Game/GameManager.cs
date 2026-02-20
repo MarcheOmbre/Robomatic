@@ -1,11 +1,13 @@
 using MoonSharp.Interpreter;
 using Project.Scripts.Code;
+using Project.Scripts.Entities;
 using Project.Scripts.Game.Inputs;
 using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Interpreters.Lua;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using Logger = Project.Scripts.Interpreters.Log.Logger;
 
 namespace Project.Scripts.Game
 {
@@ -14,27 +16,35 @@ namespace Project.Scripts.Game
         private const int MaxLogCount = 1000;
         
         
+        public EntitiesManager EntitiesManager { get; } = new();
+        
+        public Camera GameCamera => gameCamera;
+        
+        public CodeEditor CodeEditor { get; private set; }
+        
+        public Logger Logger { get; } = new(MaxLogCount);
+
+
         [SerializeField] private UIDocument developmentEnvironmentDocument;
-        [SerializeField] private References references;
         [SerializeField] private InputActionReference programmableTriggerActionReference;
         [SerializeField] private InputActionReference programmableScreenPositionActionReference;
-
-        private readonly Interpreters.Log.Logger logger = new(MaxLogCount);
+        [SerializeField] private Camera gameCamera;
+        
         private IInterpreterService interpreter;
-        private CodeEditor codeEditor;
         private ProgrammableInput programmableInput;
 
 
         private void Awake()
         {
-            interpreter = new LuaInterpreterService(CoreModules.Preset_HardSandbox, logger);
-            codeEditor = new CodeEditor(developmentEnvironmentDocument, interpreter, logger);
-            
- 
+            // Initialize
+            interpreter = new LuaInterpreterService(CoreModules.Preset_HardSandbox | CoreModules.Coroutine, Logger);
+            CodeEditor = new CodeEditor(developmentEnvironmentDocument, interpreter, Logger);
             programmableInput = new ProgrammableInput(programmableTriggerActionReference.action,
-                programmableScreenPositionActionReference.action, references.GameCamera, codeEditor);
+                programmableScreenPositionActionReference.action, gameCamera, CodeEditor);
             
+            // Setup
             programmableInput.Enable();
+            EntitiesManager.ScanSceneEntities();
         }
     }
 }

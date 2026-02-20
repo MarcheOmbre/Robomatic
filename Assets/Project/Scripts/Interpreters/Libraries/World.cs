@@ -12,19 +12,19 @@ namespace Project.Scripts.Interpreters.Libraries
         [AuthorizedHelper.AuthorizedMethod]
         public static AEntity GetEntity(int index = 0)
         {
-            if(index < 0 || index >= References.Instance.EntitiesManager.Entities.Count)
+            var entities = References.Instance.GameManager.EntitiesManager.Entities.ToArray();
+            if(index < 0 || index >= entities.Length)
                 return null;
 
-            return References.Instance.EntitiesManager.Entities[index];
+            return entities[index];
         }
 
         [UsedImplicitly]
         [AuthorizedHelper.AuthorizedMethod]
         public static AEntity GetEntity(EntityType type, int index = 0)
         {
-            var entities = References.Instance.EntitiesManager.Entities.Where(e => e.EntityType == type).ToList();
-            
-            if(index < 0 || index >= entities.Count)
+            var entities = References.Instance.GameManager.EntitiesManager.Entities.Where(e => e.EntityType == type).ToArray();
+            if(index < 0 || index >= entities.Length)
                 return null;
 
             return entities[index];

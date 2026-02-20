@@ -18,7 +18,7 @@ namespace Project.Scripts.Interpreters.Lua
             code = code.Replace("do", "do coroutine.yield()");
 
             // Wrap the code in a function
-            code = $" return function() {code} end";
+            code = $"return function() {code} end";
 
             return code;
         }
