@@ -1,4 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Project.Scripts.Interpreters;
 using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Interpreters.Log;
@@ -18,9 +22,10 @@ namespace Project.Scripts.Code
         private readonly UIDocument document;
         private readonly IInterpreterService interpreterService;
         private readonly Logger logger;
-
+        
         private readonly TextField nameTextField;
         private readonly TextField codeTextField;
+        private readonly ScrollView consoleScrollView;
         private readonly Label consoleLabel;
         private readonly Button injectButton;
         private readonly Button offButton;
@@ -36,15 +41,14 @@ namespace Project.Scripts.Code
             
             nameTextField = document.rootVisualElement.Q<TextField>("text_field_name");
             codeTextField = document.rootVisualElement.Q<TextField>("text_field_code");
+            consoleScrollView = document.rootVisualElement.Q<ScrollView>("scroll_view_console");
             consoleLabel = document.rootVisualElement.Q<Label>("label_console");
             injectButton = document.rootVisualElement.Q<Button>("button_inject");
             offButton = document.rootVisualElement.Q<Button>("button_off");
-
+            
             interpreterService.OnScriptAdded += OnScriptAdded;
             interpreterService.OnScriptRemoved += OnScriptRemoved;
             logger.OnLogAdded += OnLogAdded;
-
-            consoleLabel.enableRichText = true;
             
             Close();
         }
@@ -54,17 +58,6 @@ namespace Project.Scripts.Code
             logger.OnLogAdded -= OnLogAdded;
             
             Close();
-        }
-
-        private void Inject()
-        {
-            CurrentProgrammable.Name = !string.IsNullOrEmpty(nameTextField.value) ? nameTextField.value : programmableName;
-            CurrentProgrammable.Code = codeTextField.value;
-            interpreterService.Inject(new RuntimeEnvironment
-            {
-                Code = CurrentProgrammable.Code,
-                Reference = CurrentProgrammable
-            });
         }
         
         public void Open(IProgrammable programmable)
@@ -90,9 +83,21 @@ namespace Project.Scripts.Code
             CurrentProgrammable = null;
 
             document.rootVisualElement.style.display = DisplayStyle.None;
-
+            
             injectButton.clickable.clicked -= Inject;
             offButton.clickable.clicked -= Stop;
+        }
+
+        
+        private void Inject()
+        {
+            CurrentProgrammable.Name = !string.IsNullOrEmpty(nameTextField.value) ? nameTextField.value : programmableName;
+            CurrentProgrammable.Code = codeTextField.value;
+            interpreterService.Inject(new RuntimeEnvironment
+            {
+                Code = CurrentProgrammable.Code,
+                Reference = CurrentProgrammable
+            });
         }
         
         private void Stop() => interpreterService.Remove(CurrentProgrammable);
@@ -110,23 +115,33 @@ namespace Project.Scripts.Code
                 offButton.SetEnabled(false);
         }
         
-        private void OnLogAdded(LogData logData)
+        private async void OnLogAdded(LogData logData)
         {
-            if(logData.Reference != CurrentProgrammable)
-                return;
+            try
+            {
+                if(logData.Reference != CurrentProgrammable)
+                    return;
             
-            var lineText = logData.Line.HasValue ? $"Line {logData.Line.Value}" : "Unknown line";
-            var message = $"{logData.LogType}: {logData.Message} ({lineText})";
+                var lineText = logData.Line.HasValue ? $"Line {logData.Line.Value}" : "Unknown line";
+                var message = $"{logData.LogType}: {logData.Message} ({lineText})";
             
-            if(logData.LogType == LogType.Error)
-                message = $"<color=red>{message}</color>";
-            else if(logData.LogType == LogType.Warning)
-                message = $"<color=yellow>{message}</color>";
+                if(logData.LogType == LogType.Error)
+                    message = $"<color=red>{message}</color>";
+                else if(logData.LogType == LogType.Warning)
+                    message = $"<color=yellow>{message}</color>";
 
-            message += "\n";
+                message += "\n";
             
-            consoleLabel.text += message;
-            Debug.Log(consoleLabel.text);
+                consoleLabel.text += message;
+            
+                // Necessary to wait until the ui has redrawn
+                await Awaitable.EndOfFrameAsync();
+                consoleScrollView.scrollOffset = Vector2.one * int.MaxValue;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
         }
     }
 }

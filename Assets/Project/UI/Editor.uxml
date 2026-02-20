@@ -1,15 +1,13 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <Style src="project://database/Assets/Project/UI/Style.uss?fileID=7433441132597879392&amp;guid=2bd9df85ec99f4245b80cba633e17550&amp;type=3"/>
+    <Style src="project://database/Assets/Project/UI/Style.uss?fileID=7433441132597879392&amp;guid=2bd9df85ec99f4245b80cba633e17550&amp;type=3#Style"/>
     <Style src="project://database/Assets/Project/UI/Editor_Style.uss?fileID=7433441132597879392&amp;guid=b8aa90c848060dc7e84a85ee481409b0&amp;type=3#Editor_Style"/>
     <ui:VisualElement name="background">
-        <ui:TextField label="Name" placeholder-text="Name ID" name="text_field_name" multiline="true"/>
+        <ui:TextField label="Name" placeholder-text="Name ID" name="text_field_name"/>
         <ui:VisualElement name="space"/>
-        <ui:ScrollView name="scroll_view_code">
-            <ui:TextField label="Text Field" placeholder-text="Your code here" name="text_field_code" multiline="true"/>
-        </ui:ScrollView>
+        <ui:TextField label="Text Field" placeholder-text="Your code here" name="text_field_code" multiline="true"/>
         <ui:VisualElement name="space"/>
-        <ui:ScrollView name="console_container">
-            <ui:Label text="Label" name="label_console"/>
+        <ui:ScrollView name="scroll_view_console" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Hidden">
+            <ui:Label text="Console" name="label_console"/>
         </ui:ScrollView>
         <ui:VisualElement name="space"/>
         <ui:VisualElement name="footer">

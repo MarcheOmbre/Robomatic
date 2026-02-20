@@ -3,7 +3,6 @@
     --text_color: white;
 }
 
-
 #background {
     width: 50%;
     height: 100%;
@@ -18,32 +17,22 @@
     display: none;
 }
 
-#scroll_view_code {
+#text_field_code {
+    flex: 1;
     flex-grow: 1;
 }
 
-ScrollView VisualElement{
-    padding: 0;
+scroll_view_console VisualElement{
+
 }
 
-ScrollView #unity-content-container{
-    min-height: 100%;
-}
-
-#text_field_code{
-    width: 100%;
-    min-height: 100%;
-}
-
-#console_container {
+#scroll_view_console {
     height: 20%;
     border-color: gray;
     border-width: var(--main_border_size);
 }
 
 #label_console {
-    width: 100%;
-    height: auto;
     color: var(--text_color);
 }
 
