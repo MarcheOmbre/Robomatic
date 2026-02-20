@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Project.Scripts.Interpreters.Libraries;
+using UnityEngine;
 
 namespace Project.Scripts.Interpreters
 {
     public static class AuthorizedHelper
     {
         /// <summary>
-        /// Attribute to use on allowed types that do not contain AuthorizedMethod attributes
+        /// Attribute used on any method that has to be extracted using the <code>ExtractTypes</code> method.
         /// </summary>
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum, Inherited = false)]
         public class AuthorizedType : Attribute
@@ -16,78 +18,102 @@ namespace Project.Scripts.Interpreters
         }
 
         /// <summary>
-        /// Attribute to use on allowed public methods. No need to add the AuthorizedType attribute to the class.
+        /// Attribute used on any method that has to be extracted using the <code>ExtractPublicMethods</code> method.
         /// </summary>
         /// <remarks>Non-public methods will be ignored</remarks>
+        /// <remarks><code>Inherit</code> should only be used on Base methods. If not, the extraction method will throw an exception</remarks>
         [AttributeUsage(AttributeTargets.Method, Inherited = false)]
-        public class AuthorizedMethod : Attribute
+        public class AuthorizedPublicMethod : Attribute
         {
-            public bool IncludeInherited { get; }
+            public bool Inherit { get; }
 
-            public AuthorizedMethod(bool includeInherited = false)
+            public AuthorizedPublicMethod(bool inherit = false)
             {
-                IncludeInherited = includeInherited;
+                Inherit = inherit;
             }
         }
 
-        public static Dictionary<Type, HashSet<MethodInfo>> ExtractTypesAndMethods(Assembly assembly)
+        /// <summary>
+        /// Attribute used on any method that has to be extracted using the <code>FormatSelfMethods</code> method.
+        /// </summary>
+        /// <remarks><code>Inherit</code> should only be used on Base methods. If not, the extraction method will throw an exception</remarks>
+        [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+        public class AuthorizedSelfMethod : Attribute
         {
-            if(assembly is null)
-                throw new ArgumentNullException(nameof(assembly));
+            public bool Inherit { get; }
+
+            public AuthorizedSelfMethod(bool inherit = false)
+            {
+                Inherit = inherit;
+            }
+        }
+        
+        /// <summary>
+        /// Extract all types with the attribute <code>AuthorizedType</code>
+        /// </summary>
+        /// <param name="assemblies">The assemblies from where to extract the types</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static HashSet<Type> ExtractTypes(Assembly[] assemblies)
+        {
+            if (assemblies is null)
+                throw new ArgumentNullException(nameof(assemblies));
+            
+            return assemblies.SelectMany(x=> x.GetTypes()).Where(x => x.GetCustomAttribute<AuthorizedType>() is not null) .ToHashSet();
+        }
+
+        /// <summary>
+        /// Extract all the public methods with the attribute <code>AuthorizedPublicMethod</code>.
+        /// </summary>
+        /// <param name="assemblies">The assemblies from where to extract the methods</param>
+        /// <returns>The extracted methods by type</returns>
+        /// <remarks>If the attribute <code>AuthorizedPublicMethod</code> Inherit parameter is set to true, the base method will be also added to the children types</remarks>
+        public static Dictionary<Type, HashSet<MethodInfo>> ExtractPublicMethods(Assembly[] assemblies)
+        {
+            if(assemblies is null)
+                throw new ArgumentNullException(nameof(assemblies));
             
             // Get authorized methods
-            var allTypes = new HashSet<Type>();
-            var attributeMethodInfos = new HashSet<MethodInfo>();
+            var allTypes = assemblies.SelectMany(x => x.GetTypes()).ToArray();
             var selectedTypesAndMethods = new HashSet<Tuple<Type, MethodInfo>>();
             
             // Fill the lists
-            foreach (var type in typeof(World).Assembly.GetTypes())
+            foreach (var type in allTypes)
             {
-                allTypes.Add(type);
-
-                if (type.GetCustomAttribute<AuthorizedType>() is not null) 
-                    selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(type, null));
-
-                foreach (var methodInfo in type.GetMethods())
+                foreach (var methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | 
+                                                           BindingFlags.Static | BindingFlags.DeclaredOnly))
                 {
-                    var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedMethod>();
+                    var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedPublicMethod>();
                     if (authorizedMethod is null || !methodInfo.IsPublic)
                         continue;
                     
-                    if(authorizedMethod.IncludeInherited && methodInfo.DeclaringType != type)
+                    if(type.IsClass && !type.IsAbstract || type.IsSealed)
+                        selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(type, methodInfo));
+                    
+                    if(authorizedMethod.Inherit && methodInfo.DeclaringType != type)
                         continue;
                     
-                    attributeMethodInfos.Add(methodInfo);
-                }
-            }
-
-            // Fill the dictionary with authorized types
-            foreach (var attributeMethodInfo in attributeMethodInfos)
-            {
-                // Only consider methods with non-null declaring types
-                if (attributeMethodInfo.DeclaringType is null)
-                    continue;
-
-                // Inject the target method if it is not abstract or interface
-                selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(attributeMethodInfo.DeclaringType, attributeMethodInfo));
-
-                // Search for inherited methods
-                if (!attributeMethodInfo.GetCustomAttribute<AuthorizedMethod>().IncludeInherited)
-                    continue;
-                
-                foreach (var type in allTypes)
-                {
-                    // Only consider concrete types that differ from the declaring type
-                    if (type is null || type == attributeMethodInfo.DeclaringType ||
-                        type.IsAbstract || type.IsInterface || type.IsGenericTypeDefinition)
+                    // Search for inherited methods
+                    if (!authorizedMethod.Inherit)
                         continue;
+                    
+                    // Inheritance only allowed for base methods
+                    if (methodInfo.GetBaseDefinition().DeclaringType != type)
+                        throw new ApplicationException($"The {methodInfo.Name} has the attribute {nameof(AuthorizedPublicMethod)} with {nameof(AuthorizedPublicMethod.Inherit)} set to true but is not a Base method");
+                    
+                    foreach (var comparisonType in allTypes)
+                    {
+                        // Only consider concrete types that differ from the declaring type
+                        if (comparisonType == type || comparisonType.IsAbstract || comparisonType.IsInterface || comparisonType.IsGenericTypeDefinition)
+                            continue;
 
-                    // Only consider methods from the declaring type
-                    if (!attributeMethodInfo.DeclaringType.IsAssignableFrom(type))
-                        continue;
+                        // Only consider methods from the declaring type
+                        if (!type.IsAssignableFrom(comparisonType))
+                            continue;
 
-                    // Inject the method to the class
-                    selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(type, attributeMethodInfo));
+                        // Inject the method to the class
+                        selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(comparisonType, methodInfo));
+                    }
                 }
             }
 
@@ -105,6 +131,53 @@ namespace Project.Scripts.Interpreters
             }
 
             return dictionary;
+        }
+        
+        /// <summary>
+        /// Extract methods from the reference type and inherited methods from parents with the attribute <code>AuthorizedSelfMethod</code>.
+        /// </summary>
+        /// <param name="reference">Reference object from which to </param>
+        /// <param name="assemblies">The assemblies from where to extract the methods</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static HashSet<MethodInfo> ExtractSelfMethods(object reference, Assembly[] assemblies = null)
+        {
+            if(reference is null)
+                throw new ArgumentNullException(nameof(reference));
+            
+            var referenceType = reference.GetType();
+            assemblies ??= new[] { referenceType.Assembly };
+            
+            var methods = new  HashSet<MethodInfo>();
+            foreach (var type in assemblies.SelectMany(x => x.GetTypes()))
+            {
+                // Check if the type is self or if it's a parent with the inherit parameter
+                var isSelf = type == referenceType;
+                foreach (var methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic |
+                                                       BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    // Check the attribute
+                    var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedSelfMethod>();
+                    if (authorizedMethod is null)
+                        continue;
+                    
+                    // If the method comes from parent class, check if the methods is allowed on the child class
+                    if (!isSelf)
+                    {
+                        // Check inheritance
+                        if(!authorizedMethod.Inherit || !type.IsAssignableFrom(referenceType))
+                            continue;
+                        
+                        // Inheritance only allowed for base methods
+                        if (methodInfo.GetBaseDefinition().DeclaringType != type)
+                            throw new ApplicationException($"The {methodInfo.Name} has the attribute {nameof(AuthorizedPublicMethod)} with {nameof(AuthorizedPublicMethod.Inherit)} set to true but is not a Base method");
+                    }
+                    
+                    methods.Add(methodInfo);   
+                }
+            }
+
+            return methods;
         }
     }
 }

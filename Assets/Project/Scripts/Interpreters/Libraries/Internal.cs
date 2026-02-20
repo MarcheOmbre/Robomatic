@@ -8,7 +8,7 @@ namespace Project.Scripts.Interpreters.Libraries
     public static class Internal
     {
         [UsedImplicitly]
-        [AuthorizedHelper.AuthorizedMethod]
+        [AuthorizedHelper.AuthorizedPublicMethod]
         public static void Log(IProgrammable reference, string message, LogType logType = LogType.Information)
         {
             var currentLogObject = References.Instance.GameManager.CodeEditor.CurrentProgrammable;

@@ -38,9 +38,10 @@ namespace Project.Scripts.Game.Entities
         
         #region Authorized Methods
         
+        [UsedImplicitly]
         public IMover Mover
         {
-            [AuthorizedHelper.AuthorizedMethod] 
+            [AuthorizedHelper.AuthorizedSelfMethod] 
             get => mover;
         }
         

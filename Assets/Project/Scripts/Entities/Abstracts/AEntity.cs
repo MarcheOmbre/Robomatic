@@ -9,20 +9,20 @@ namespace Project.Scripts.Entities.Abstracts
     {
         public abstract float Radius
         {
-            [AuthorizedHelper.AuthorizedMethod(true)]
+            [AuthorizedHelper.AuthorizedPublicMethod(true)]
             get;
         }
         
         public Vector2 Position
         {
-            [AuthorizedHelper.AuthorizedMethod(true)]
+            [AuthorizedHelper.AuthorizedPublicMethod(true)]
             get => transform.position.XZToXYVector2();
         }
 
 
         public abstract EntityType EntityType
         {
-            [AuthorizedHelper.AuthorizedMethod(true)]
+            [AuthorizedHelper.AuthorizedPublicMethod(true)]
             get;
         }
 
@@ -35,14 +35,13 @@ namespace Project.Scripts.Entities.Abstracts
             entitiesManager = manager;
         }
         
-        
         protected virtual void OnValidate()
         {
             if (EntityType.HasMultipleFlags())
                 throw new ArgumentException("Entity only support One Flag set.");
         }
 
-
+        
         public void Despawn()
         {
             if(entitiesManager is null)
