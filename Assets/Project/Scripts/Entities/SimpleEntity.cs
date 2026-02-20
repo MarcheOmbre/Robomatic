@@ -1,20 +1,20 @@
 using Project.Scripts.Entities.Abstracts;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace Project.Scripts.Entities
 {
-    [RequireComponent(typeof(NavMeshObstacle))]
     public class SimpleEntity : AEntity
     {
-        public override float Radius => navMeshObstacle.radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
+        public override float Radius => radius * Mathf.Max(transform.localScale.x, transform.localScale.z);
         
-        public override EntityType EntityType => EntityType.SimpleEntity;
+        public override EntityType EntityType => EntityType.Unknown;
 
         
-        private NavMeshObstacle navMeshObstacle;
+        [SerializeField][Min(0)] private float radius = 1f;
         
         
-        private void Awake() => navMeshObstacle = GetComponent<NavMeshObstacle>();
+        #if UNITY_EDITOR
+        private void OnDrawGizmosSelected() => Gizmos.DrawWireSphere(transform.position, Radius);
+#endif
     }
 }

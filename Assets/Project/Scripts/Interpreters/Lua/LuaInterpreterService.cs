@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,8 @@ using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Interpreters.Lua.Libraries;
 using Project.Scripts.Interpreters.Lua.Libraries.Abstracts;
 using UnityEngine;
+using Logger = Project.Scripts.Interpreters.Log.Logger;
+using LogType = Project.Scripts.Interpreters.Log.LogType;
 
 namespace Project.Scripts.Interpreters.Lua
 {
@@ -19,198 +22,43 @@ namespace Project.Scripts.Interpreters.Lua
     /// </summary>
     public class LuaInterpreterService : IInterpreterService
     {
+        private struct ScriptData
+        {
+            public Script Script;
+            public CancellationTokenSource CancellationTokenSource;
+            public Task Task;
+        }
+        
+        private const string SelfKeyword = "self";
+        
+        
+        public event Action<IProgrammable> OnScriptAdded = delegate { };
+        public event Action<IProgrammable> OnScriptRemoved =delegate { };
+        
+        
         private readonly CoreModules coreModules;
-        private readonly bool debuggerEnabled;
+        private readonly Logger logger;
+
+        private readonly Dictionary<Type, StandardUserDataDescriptor> dynamicMembers;
+        private readonly Dictionary<Type, Dictionary<MethodInfo, string>> staticMembers;
+        private readonly Dictionary<string, int> enums;
+        private readonly HashSet<string> luaStaticClasses;
+        private readonly HashSet<ALuaObject> luaObjects = new(){ new Vector2Object() };
+        
+        private readonly Dictionary<IProgrammable, ScriptData> runningScripts = new();
 
 
-        public LuaInterpreterService(CoreModules coreModules, bool debuggerEnabled)
+        public LuaInterpreterService(CoreModules coreModules, Logger logger = null)
         {
             this.coreModules = coreModules;
-            this.debuggerEnabled = debuggerEnabled;
-        }
-
-
-        private static string FormatFunctionName(string functionName)
-        {
-            if (functionName is not { Length: > 0 })
-                return string.Empty;
-
-            for (var i = functionName.Length - 1; i >= 1; i--)
-            {
-                if (!char.IsUpper(functionName[i]))
-                    continue;
-
-                if (functionName[i - 1] != '_')
-                    functionName = functionName.Insert(i, "_");
-            }
-
-            return functionName.ToLower();
-        }
-
-        private static string FormatEnumName(string name) => name is not { Length: > 0 } ? string.Empty : name.ToUpper();
-        
-        private static string FormatCode(string code)
-        {
-            if (code is null)
-                return string.Empty;
-
-            // Add yield at each loop
-            code = code.Replace("do", "do coroutine.yield()");
-
-            // Wrap the code in a function
-            code = $" return function() {code} end";
-
-            return code;
-        }
-        
-        
-        private static void RegisterDynamicMembers(Dictionary<Type, HashSet<MethodInfo>> members)
-        {
-            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
-
-            foreach (var (type, methodInfos) in members)
-            {
-                if(!type.IsClass)
-                    throw new ApplicationException($"Type {type.Name} must be a class.");
-                
-                if (methodInfos is not { Count: > 0 })
-                    throw new ApplicationException($"No method found for type {type.Name}");
-
-                if (type.IsAbstract && type.IsSealed)
-                    throw new ApplicationException($"Type {type.Name} must be dynamic.");
-
-                // Hide all members except authorized ones
-                var description = new StandardUserDataDescriptor(type, InteropAccessMode.HideMembers);
-
-                // Add back all authorized members
-                foreach (var methodInfo in methodInfos)
-                {
-                    var name = FormatFunctionName(methodInfo.Name);
-                    description.AddMember(name, new MethodMemberDescriptor(methodInfo));
-
-#if UNITY_EDITOR && DEBUG_REGISTRATION
-                    Debug.Log($"Registering dynamic member : {type.Name}.{name}");
-#endif
-                }
-
-                // Add the type to the script
-                UserData.RegisterType(type, description);
-            }
-        }
-
-        private static void RegisterStaticMembers(Script script, Dictionary<Type, HashSet<MethodInfo>> members)
-        {
-            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
+            this.logger = logger;
             
-            foreach (var (type, methodInfos) in members)
-            {
-                if(!type.IsClass)
-                    throw new ApplicationException($"Type {type.Name} must be a class.");
-
-                if (methodInfos is not { Count: > 0 })
-                    throw new ApplicationException($"No method found for type {type.Name}");
-
-                if (!type.IsAbstract || !type.IsSealed)
-                    throw new ApplicationException($"Type {type.Name} must be static.");
-
-                var typeName = type.Name;
-                var table = new Table(script);
-                
-                foreach (var methodInfo in methodInfos)
-                {
-                    var methodName = FormatFunctionName(methodInfo.Name);
-                    table[methodName] = methodInfo;   
-                    
-#if UNITY_EDITOR && DEBUG_REGISTRATION
-                    Debug.Log($"Registering static member : {typeName}.{methodName}");
-#endif
-                }
-                
-                script.Globals[typeName] = table;
-            }
-        }
-
-        private static void RegisterGlobalEnums(Script script, HashSet<Type> types)
-        {
-            types ??= new HashSet<Type>();
+            var members = AuthorizedHelper.ExtractTypesAndMethods(GetType().Assembly);
             
-            foreach (var type in types)
-            {
-                if(!type.IsEnum)
-                    throw new ApplicationException($"Type {type.Name} must be an enum.");
-                
-                var values = (int[])Enum.GetValues(type);
-                var names = Enum.GetNames(type);
-
-                if (values.Length != names.Length)
-                    throw new ApplicationException("Enum values and names must have the same length.");
-
-                for (var i = 0; i < values.Length; i++)
-                {
-                    var name = FormatEnumName($"{type.Name}_{names[i]}");
-                    script.Globals[name] = values[i];
-                    
-#if UNITY_EDITOR && DEBUG_REGISTRATION
-                    Debug.Log($"Registering enum : {name}");
-#endif
-                }
-            }
-        }
-        
-        private static void RegisterLuaStaticClass(Script script, HashSet<ALuaStaticClass> luaStaticClasses)
-        {
-            if (luaStaticClasses is not { Count: > 0 })
-                throw new ApplicationException("No Lua Static Class to load.");
-
-            foreach (var module in luaStaticClasses)
-            {
-                var methods = module.ExtractMethods();
-                if (methods is not { Length: > 0 })
-                    return;
-
-                // Load each resource
-                foreach (var method in methods)
-                {
-                    if (string.IsNullOrEmpty(method))
-                        throw new ApplicationException("Lua Static Class cannot be empty.");
-
-                    script.DoString(method);
-
-#if UNITY_EDITOR && DEBUG_REGISTRATION
-                    Debug.Log($"Registering Lua Static Classes : {module.Name}");
-#endif
-                }
-            }
-        }
-        
-        private static void RegisterLuaObjects(Script script, HashSet<ALuaObject> luaObjects)
-        {
-            if (luaObjects is not { Count: > 0 })
-                throw new ApplicationException("No Lua Object to load.");
-
-            foreach (var luaObject in luaObjects)
-            {
-                luaObject.Register(script);
-                
-#if UNITY_EDITOR && DEBUG_REGISTRATION
-                Debug.Log($"Registering Lua Object : {luaObject.Name}");
-#endif
-            }
-        }
-
-        public async Task Execute(Dictionary<Type, HashSet<MethodInfo>> members, string code,
-            CancellationToken cancellationToken = default)
-        {
-            // Create the script and load the code
-            var script = new Script(coreModules) { DebuggerEnabled = debuggerEnabled };
-
-            // Load memners
-            members ??= new Dictionary<Type, HashSet<MethodInfo>>();
-
             var dynamicTypes = new Dictionary<Type, HashSet<MethodInfo>>();
             var staticTypes = new Dictionary<Type, HashSet<MethodInfo>>();
             var enumTypes = new HashSet<Type>();
-
+            
             foreach (var member in members)
             {
                 if (member.Key.IsClass)
@@ -223,67 +71,147 @@ namespace Project.Scripts.Interpreters.Lua
                 else if (member.Key.IsEnum)
                     enumTypes.Add(member.Key);
             }
-            
-            RegisterDynamicMembers(dynamicTypes);
-            RegisterStaticMembers(script, staticTypes);
-            RegisterGlobalEnums(script, enumTypes);
 
-            // Register static libraries
-            RegisterLuaStaticClass(script, new HashSet<ALuaStaticClass>
+            dynamicMembers = EnvironmentUtils.ExtractDynamicMembers(dynamicTypes);
+            staticMembers = EnvironmentUtils.ExtractStaticMembers(staticTypes);
+            enums = EnvironmentUtils.ExtractGlobalEnums(enumTypes);
+            luaStaticClasses = EnvironmentUtils.ExtractLuaStaticClass(new HashSet<ALuaStaticClass>
             {
+                new ConsoleStaticClass(),
                 new SystemStaticClass()
             });
-            
-            // Register objects
-            RegisterLuaObjects(script, new HashSet<ALuaObject>
+        }
+
+        ~LuaInterpreterService()
+        {
+            foreach (var key in runningScripts.Keys)
+                InternalRemove(key);
+        }
+
+        
+        private async Task ScriptProcess(IProgrammable reference, string code, Script script, CancellationToken cancellationToken)
+        {
+            try
             {
-                new Vector2Object()
-            });
+                var function = script.DoString(code);
 
-            // Encapsulate in coroutine
-            code = FormatCode(code);
-
-            // Execute the code
-            var function = script.DoString(code);
-
-            if (function.Table != null)
-            {
-                foreach (var table in function.Table.Pairs)
+                var coroutine = script.CreateCoroutine(function);
+                foreach (DynValue unused in coroutine.Coroutine.AsEnumerable())
                 {
-                    Debug.Log($"{table.Key} - {table.Value}");
+                    await Task.Yield();
+
+                    // Handle coroutine cancellation
+                    if (cancellationToken.IsCancellationRequested)
+                        break;
+
+                    if (reference is null)
+                        break;
                 }
             }
-
-            var coroutine = script.CreateCoroutine(function);
-            foreach (DynValue unused in coroutine.Coroutine.AsEnumerable())
+            catch (Exception e)
             {
-                await Task.Yield();
+                var line = Utils.ExtractLine(e);
 
-                if (cancellationToken.IsCancellationRequested)
-                    break;
+                if (reference != null)
+                    logger?.AddLog(reference, LogType.Error, e.Message, line);
+            }
+            finally
+            {
+                InternalRemove(reference);
             }
         }
 
-        public string FormatErrorMessage(Exception exception)
+        private bool InternalRemove(IProgrammable reference)
         {
-            if (exception is null)
-                return string.Empty;
+            if(!runningScripts.TryGetValue(reference, out var scriptData))
+                return false;
 
-            if (exception is InterpreterException interpreterException)
+            // Cancel the script process
+            if (scriptData.CancellationTokenSource != null)
             {
-                var decoratedMessage = interpreterException.DecoratedMessage;
-
-                var firstIndex = decoratedMessage.IndexOf('(');
-                var lastIndex = decoratedMessage.LastIndexOf(',');
-
-                if (firstIndex != -1 && lastIndex != -1)
-                {
-                    var line = decoratedMessage.Substring(firstIndex + 1, lastIndex - firstIndex - 1);
-                    return $"Error at line {line}: {interpreterException.Message}";
-                }
+                scriptData.CancellationTokenSource.Cancel();
+                scriptData.CancellationTokenSource.Dispose();
             }
 
-            return exception.Message;
+            runningScripts.Remove(reference);
+            
+            OnScriptRemoved(reference);
+            return true;
+        }
+        
+        public HashSet<IProgrammable> GetInstances() => runningScripts.Keys.ToHashSet();
+        
+        public bool Inject(RuntimeEnvironment runtimeEnvironment)
+        {
+            if(string.IsNullOrEmpty(runtimeEnvironment.Code))
+                return false;
+            
+            if(runtimeEnvironment.Reference is null)
+                throw new ArgumentNullException(nameof(runtimeEnvironment.Reference));
+            
+            // Remove previous script if any
+            InternalRemove(runtimeEnvironment.Reference);
+            
+            // Create the script and load the code
+            var script = new Script(coreModules);
+
+            // Inject Dynamic members
+            foreach (var (type, description) in dynamicMembers) 
+                UserData.RegisterType(type, description);
+            
+            // Inject Static members
+            foreach (var (type, methodsDictionary) in staticMembers)
+            {
+                var typeName = type.Name;
+                var table = new Table(script);
+                
+                foreach (var (methodInfo, name) in methodsDictionary) 
+                    table[name] = methodInfo;
+                
+                script.Globals[typeName] = table;
+            }
+            
+            // Inject Enums
+            foreach (var (name, value) in enums) 
+                script.Globals[name] = value;
+            
+            // Inject Static classes
+            foreach (var luaStaticClass in luaStaticClasses) 
+                script.DoString(luaStaticClass);
+            
+            // Inject Objects
+            foreach (var luaObject in luaObjects) 
+                luaObject.Register(script);
+            
+            // Inject self
+            script.Globals[SelfKeyword] = runtimeEnvironment.Reference;
+            
+            // Format code
+            var formattedCode = Utils.FormatCode(runtimeEnvironment.Code);
+            
+            // Create the script process
+            var cancellationTokenSource = new CancellationTokenSource();
+            var scriptData = new ScriptData
+            {
+                Script = script, 
+                CancellationTokenSource = cancellationTokenSource, 
+                Task = ScriptProcess(runtimeEnvironment.Reference, formattedCode, script, cancellationTokenSource.Token)
+            };
+
+            runningScripts.Add(runtimeEnvironment.Reference, scriptData);
+            
+            logger?.AddLog(runtimeEnvironment.Reference, LogType.Information, "Script injected");
+            OnScriptAdded(runtimeEnvironment.Reference);
+            return true;
+        }
+
+        public bool Remove(IProgrammable reference)
+        {
+            if (!InternalRemove(reference))
+                return false;
+            
+            logger?.AddLog(reference, LogType.Information, "Script removed");
+            return true;
         }
     }
 }

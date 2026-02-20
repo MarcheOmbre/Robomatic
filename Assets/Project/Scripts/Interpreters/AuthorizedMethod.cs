@@ -16,8 +16,9 @@ namespace Project.Scripts.Interpreters
         }
 
         /// <summary>
-        /// Attribute to use on allowed methods. No need to add the AuthorizedType attribute to the class.
+        /// Attribute to use on allowed public methods. No need to add the AuthorizedType attribute to the class.
         /// </summary>
+        /// <remarks>Non-public methods will be ignored</remarks>
         [AttributeUsage(AttributeTargets.Method, Inherited = false)]
         public class AuthorizedMethod : Attribute
         {
@@ -29,8 +30,11 @@ namespace Project.Scripts.Interpreters
             }
         }
 
-        public static Dictionary<Type, HashSet<MethodInfo>> ExtractTypesAndMethods()
+        public static Dictionary<Type, HashSet<MethodInfo>> ExtractTypesAndMethods(Assembly assembly)
         {
+            if(assembly is null)
+                throw new ArgumentNullException(nameof(assembly));
+            
             // Get authorized methods
             var allTypes = new HashSet<Type>();
             var attributeMethodInfos = new HashSet<MethodInfo>();
@@ -47,7 +51,7 @@ namespace Project.Scripts.Interpreters
                 foreach (var methodInfo in type.GetMethods())
                 {
                     var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedMethod>();
-                    if (authorizedMethod is null)
+                    if (authorizedMethod is null || !methodInfo.IsPublic)
                         continue;
                     
                     if(authorizedMethod.IncludeInherited && methodInfo.DeclaringType != type)
@@ -64,7 +68,7 @@ namespace Project.Scripts.Interpreters
                 if (attributeMethodInfo.DeclaringType is null)
                     continue;
 
-                // Add the target method if it is not abstract or interface
+                // Inject the target method if it is not abstract or interface
                 selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(attributeMethodInfo.DeclaringType, attributeMethodInfo));
 
                 // Search for inherited methods
@@ -82,7 +86,7 @@ namespace Project.Scripts.Interpreters
                     if (!attributeMethodInfo.DeclaringType.IsAssignableFrom(type))
                         continue;
 
-                    // Add the method to the class
+                    // Inject the method to the class
                     selectedTypesAndMethods.Add(new Tuple<Type, MethodInfo>(type, attributeMethodInfo));
                 }
             }
