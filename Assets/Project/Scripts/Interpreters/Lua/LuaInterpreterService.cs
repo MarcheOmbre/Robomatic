@@ -57,7 +57,7 @@ namespace Project.Scripts.Interpreters.Lua
             // Public Methods
             var dynamicTypes = new Dictionary<Type, HashSet<MethodInfo>>();
             var staticTypes = new Dictionary<Type, HashSet<MethodInfo>>();
-            foreach (var member in AuthorizedHelper.ExtractPublicMethods(new[] { GetType().Assembly }))
+            foreach (var member in AuthorizedHelper.ExtractPublicMethods(new[] { Assembly.GetExecutingAssembly() }))
             {
                 if (!member.Key.IsAbstract || !member.Key.IsSealed)
                     dynamicTypes.Add(member.Key, member.Value);
@@ -83,7 +83,7 @@ namespace Project.Scripts.Interpreters.Lua
 
             // Enums
             enums = EnvironmentUtils.FormatGlobalEnums(AuthorizedHelper
-                .ExtractTypes(new[] { GetType().Assembly })
+                .ExtractTypes(new[] { Assembly.GetExecutingAssembly() })
                 .Where(extractType => extractType.IsEnum).ToHashSet());
             
             
@@ -129,7 +129,7 @@ namespace Project.Scripts.Interpreters.Lua
             // Enums
             stringBuilder.Append("Extracted enums");
             foreach (var enumTuple in enums)
-                stringBuilder.Append(string.Format("{0}\t{1} = {2}", Environment.NewLine, enumTuple.Key, enumTuple.Value));
+                stringBuilder.Append($"{Environment.NewLine}\t{enumTuple.Key} = {enumTuple.Value}");
             Debug.Log(stringBuilder.ToString());
             stringBuilder.Clear();
 #endif
@@ -240,7 +240,7 @@ namespace Project.Scripts.Interpreters.Lua
             // Inject self
             publicDynamicMethods.TryGetValue(runtimeEnvironment.GetType(), out var standardUserDataDescriptor);
             standardUserDataDescriptor ??= new StandardUserDataDescriptor(runtimeEnvironment.Reference.GetType(), InteropAccessMode.HideMembers);
-            foreach (var selfMethod in AuthorizedHelper.ExtractSelfMethods(runtimeEnvironment.Reference, new[] { GetType().Assembly }))
+            foreach (var selfMethod in AuthorizedHelper.ExtractSelfMethods(runtimeEnvironment.Reference))
             {
                 var methodDescriptorTuple = EnvironmentUtils.ConvertMethodInfoToMethodDescriptor(selfMethod);
                 standardUserDataDescriptor.AddMember(methodDescriptorTuple.Item1, methodDescriptorTuple.Item2);

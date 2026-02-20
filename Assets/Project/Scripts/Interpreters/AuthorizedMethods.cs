@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Project.Scripts.Interpreters.Libraries;
-using UnityEngine;
 
 namespace Project.Scripts.Interpreters
 {
@@ -58,8 +56,17 @@ namespace Project.Scripts.Interpreters
         {
             if (assemblies is null)
                 throw new ArgumentNullException(nameof(assemblies));
+
             
-            return assemblies.SelectMany(x=> x.GetTypes()).Where(x => x.GetCustomAttribute<AuthorizedType>() is not null) .ToHashSet();
+            var types = new HashSet<Type>();
+            
+            foreach (var type in assemblies.SelectMany(x => x.GetTypes()))
+            {
+                if (type.GetCustomAttribute<AuthorizedType>() is not null)
+                    types.Add(type);
+            }
+
+            return types;
         }
 
         /// <summary>
@@ -83,7 +90,9 @@ namespace Project.Scripts.Interpreters
                 foreach (var methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | 
                                                            BindingFlags.Static | BindingFlags.DeclaredOnly))
                 {
+                    // Check attribute
                     var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedPublicMethod>();
+                    
                     if (authorizedMethod is null || !methodInfo.IsPublic)
                         continue;
                     
@@ -158,6 +167,7 @@ namespace Project.Scripts.Interpreters
                 {
                     // Check the attribute
                     var authorizedMethod = methodInfo.GetCustomAttribute<AuthorizedSelfMethod>();
+                    
                     if (authorizedMethod is null)
                         continue;
                     

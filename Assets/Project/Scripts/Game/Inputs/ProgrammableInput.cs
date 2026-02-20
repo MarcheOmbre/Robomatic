@@ -1,4 +1,5 @@
 using System;
+using Project.Scripts.Code;
 using Project.Scripts.Interpreters.Interfaces;
 using Project.Scripts.Utils;
 using UnityEngine;
@@ -11,10 +12,10 @@ namespace Project.Scripts.Game.Inputs
         private readonly InputAction triggerAction;
         private readonly InputAction screenPositionAction;
         private readonly Camera camera;
-        private readonly Code.CodeEditor codeEditor;
+        private readonly CodeEditor codeEditor;
         
         
-        public ProgrammableInput(InputAction triggerAction, InputAction screenPositionAction, Camera camera, Code.CodeEditor codeEditor)
+        public ProgrammableInput(InputAction triggerAction, InputAction screenPositionAction, Camera camera, CodeEditor codeEditor)
         {
             this.triggerAction = triggerAction ?? throw new ArgumentNullException(nameof(triggerAction));
             this.screenPositionAction = screenPositionAction ?? throw new ArgumentNullException(nameof(screenPositionAction));
